@@ -395,6 +395,26 @@
       .code-gutter::-webkit-scrollbar {
         display: none;
       }
+      .code-gutter .gn-line {
+        display: block;
+        line-height: inherit;
+        padding: 0 6px;
+        border-radius: 3px;
+      }
+      .code-gutter.clickable .gn-line {
+        cursor: pointer;
+        transition: color 0.1s ease, background-color 0.1s ease;
+      }
+      .code-gutter.clickable .gn-line:hover {
+        background: var(--accent-soft);
+        color: var(--accent-text);
+        opacity: 1;
+      }
+      .code-gutter.clickable .gn-line.active {
+        background: var(--accent);
+        color: #fff;
+        opacity: 1;
+      }
       .code-editor textarea {
         flex: 1 1 auto;
         border: 0;
@@ -1975,6 +1995,7 @@
         card.hidden = false;
 
         const ops = computeLineDiff(input, output);
+        latestDiffOps = ops;
         let added = 0;
         let removed = 0;
         const fragment = document.createDocumentFragment();
@@ -2021,17 +2042,28 @@
           `<span class="rem-count">-${removed}</span>`;
       }
 
-      function setupGutter(textareaId, gutterId) {
+      function setupGutter(textareaId, gutterId, options) {
         const ta = el(textareaId);
         const gutter = el(gutterId);
         if (!ta || !gutter) return () => {};
 
+        const clickable = options && options.clickable;
+        const onClick = options && options.onClick;
+
+        if (clickable) gutter.classList.add("clickable");
+
         function update() {
           const value = ta.value;
           const count = value === "" ? 1 : value.split("\n").length;
-          let s = "";
-          for (let i = 1; i <= count; i++) s += i + "\n";
-          gutter.textContent = s;
+          const frag = document.createDocumentFragment();
+          for (let i = 1; i <= count; i++) {
+            const span = document.createElement("span");
+            span.className = "gn-line";
+            span.dataset.line = String(i);
+            span.textContent = String(i);
+            frag.appendChild(span);
+          }
+          gutter.replaceChildren(frag);
         }
 
         function syncScroll() {
@@ -2040,12 +2072,85 @@
 
         ta.addEventListener("input", update);
         ta.addEventListener("scroll", syncScroll);
+
+        if (clickable && onClick) {
+          gutter.addEventListener("click", (e) => {
+            const target = e.target.closest(".gn-line");
+            if (!target) return;
+            const lineNum = parseInt(target.dataset.line, 10);
+            if (!Number.isFinite(lineNum)) return;
+            gutter
+              .querySelectorAll(".gn-line.active")
+              .forEach((n) => n.classList.remove("active"));
+            target.classList.add("active");
+            onClick(lineNum);
+          });
+        }
+
         update();
         return update;
       }
 
+      let latestDiffOps = [];
+
+      function jumpToOutputLine(inputLine) {
+        if (!latestDiffOps.length) return;
+        const outputTa = el("outputSql");
+        if (!outputTa || !outputTa.value) return;
+
+        let targetLine = null;
+        const idx = latestDiffOps.findIndex((op) => op.oldNum === inputLine);
+        if (idx === -1) return;
+
+        const op = latestDiffOps[idx];
+        if (op.newNum != null) {
+          targetLine = op.newNum;
+        } else {
+          for (let j = idx + 1; j < latestDiffOps.length; j++) {
+            if (latestDiffOps[j].newNum != null) {
+              targetLine = latestDiffOps[j].newNum;
+              break;
+            }
+          }
+          if (targetLine == null) {
+            for (let j = idx - 1; j >= 0; j--) {
+              if (latestDiffOps[j].newNum != null) {
+                targetLine = latestDiffOps[j].newNum;
+                break;
+              }
+            }
+          }
+        }
+
+        if (targetLine == null) return;
+
+        const style = getComputedStyle(outputTa);
+        const fontSize = parseFloat(style.fontSize) || 13;
+        let lineHeight = parseFloat(style.lineHeight);
+        if (!Number.isFinite(lineHeight)) lineHeight = fontSize * 1.45;
+
+        const targetY = (targetLine - 1) * lineHeight;
+        const centered =
+          targetY - outputTa.clientHeight / 2 + lineHeight / 2;
+        outputTa.scrollTop = Math.max(0, centered);
+
+        const lines = outputTa.value.split("\n");
+        let offset = 0;
+        for (let i = 0; i < targetLine - 1 && i < lines.length; i++) {
+          offset += lines[i].length + 1;
+        }
+        const endOffset = offset + (lines[targetLine - 1] || "").length;
+        try {
+          outputTa.focus({ preventScroll: true });
+          outputTa.setSelectionRange(offset, endOffset);
+        } catch (_) {}
+      }
+
       const gutterUpdaters = {
-        input: setupGutter("inputSql", "inputGutter"),
+        input: setupGutter("inputSql", "inputGutter", {
+          clickable: true,
+          onClick: (line) => jumpToOutputLine(line),
+        }),
         output: setupGutter("outputSql", "outputGutter"),
       };
 
