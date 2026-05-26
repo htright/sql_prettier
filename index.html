@@ -1304,21 +1304,20 @@
             continue;
           }
 
-          const nameW = Math.max(...parsed.map((v) => v.name.length));
-          const typeW = Math.max(...parsed.map((v) => v.type.length));
+          const baseIndent = " ".repeat(options.indentSize || 2);
 
           out.push(header);
           parsed.forEach((v, idx) => {
-            const prefix = idx === 0 ? "     " : "    ,";
+            const prefix = idx === 0 ? baseIndent : baseIndent + ",";
             out.push(
               prefix +
-                v.name.padEnd(nameW) +
-                "  " +
-                v.type.padEnd(typeW) +
+                v.name +
+                " " +
+                v.type +
                 (v.assign ? " = " + v.assign : ""),
             );
           });
-          out.push(" AS");
+          out.push("AS");
 
           i = j;
         }
@@ -1373,26 +1372,25 @@
             continue;
           }
 
-          const nameW = Math.max(...parsed.map((v) => v.name.length));
-          const typeW = Math.max(...parsed.map((v) => v.type.length));
-
           out.push(
             keywordTransform("DECLARE", options.keywordCase) +
               " " +
-              parsed[0].name.padEnd(nameW) +
-              "  " +
-              parsed[0].type.padEnd(typeW) +
-              (parsed[0].assign ? " = " + parsed[0].assign : ""),
+              parsed[0].name +
+              " " +
+              parsed[0].type +
+              (parsed[0].assign ? " = " + parsed[0].assign : "") +
+              ",",
           );
           for (let k = 1; k < parsed.length; k++) {
             const v = parsed[k];
+            const isLast = k === parsed.length - 1;
             out.push(
-              "        ," +
+              "        " +
+                v.name +
                 " " +
-                v.name.padEnd(nameW) +
-                "  " +
-                v.type.padEnd(typeW) +
-                (v.assign ? " = " + v.assign : ""),
+                v.type +
+                (v.assign ? " = " + v.assign : "") +
+                (isLast ? "" : ","),
             );
           }
 
@@ -1944,14 +1942,13 @@
             i = j - 1;
             continue;
           }
-          const nameW = Math.max(...parsed.map((v) => v.name.length));
           const declareWord = keywordTransform("DECLARE", options.keywordCase);
           const contIndent = indent + " ".repeat(declareWord.length + 1);
           parsed.forEach((v, idx) => {
             const isLast = idx === parsed.length - 1;
             const suffix = isLast && !hasTrailingComma ? "" : ",";
             const typePart = v.type + (v.assign ? " = " + v.assign : "");
-            const body = v.name.padEnd(nameW) + " " + typePart + suffix;
+            const body = v.name + " " + typePart + suffix;
             if (idx === 0) out.push(indent + declareWord + " " + body);
             else out.push(contIndent + body);
           });
