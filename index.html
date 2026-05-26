@@ -506,6 +506,45 @@
         }
       }
 
+      .top-btn {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 44px;
+        height: 44px;
+        border-radius: 999px;
+        border: 0;
+        background: var(--accent);
+        color: #ffffff;
+        box-shadow: var(--shadow);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(8px);
+        transition: opacity 0.2s ease, transform 0.2s ease,
+          background-color 0.15s ease;
+        z-index: 1000;
+      }
+      .top-btn.visible {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+      .top-btn:hover {
+        background: var(--accent-hover);
+      }
+      .top-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--ring);
+      }
+      .top-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+
       @media (max-width: 1080px) {
         .layout {
           grid-template-columns: 1fr;
@@ -693,6 +732,26 @@
         <div class="diff-view" id="diffView"></div>
       </section>
     </div>
+
+    <button
+      id="topBtn"
+      class="top-btn"
+      type="button"
+      aria-label="맨 위로"
+      title="맨 위로"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 19V5M5 12l7-7 7 7" />
+      </svg>
+    </button>
 
     <script>
       const el = (id) => document.getElementById(id);
@@ -1983,6 +2042,40 @@
         if (gutterUpdaters.input) gutterUpdaters.input();
         if (gutterUpdaters.output) gutterUpdaters.output();
       }
+
+      // 붙여넣기 시 textarea가 맨 아래로 점프하는 동작 방지 (커서/스크롤을 맨 위로)
+      function keepScrollOnPaste(textareaId) {
+        const ta = el(textareaId);
+        if (!ta) return;
+        ta.addEventListener("paste", () => {
+          requestAnimationFrame(() => {
+            ta.scrollTop = 0;
+            try {
+              ta.setSelectionRange(0, 0);
+            } catch (_) {}
+          });
+        });
+      }
+      keepScrollOnPaste("inputSql");
+      keepScrollOnPaste("outputSql");
+
+      // TOP 버튼: 페이지를 스크롤 했을 때 보이고, 클릭하면 맨 위로
+      (function initTopButton() {
+        const btn = el("topBtn");
+        if (!btn) return;
+
+        function update() {
+          if (window.scrollY > 240) btn.classList.add("visible");
+          else btn.classList.remove("visible");
+        }
+
+        window.addEventListener("scroll", update, { passive: true });
+        update();
+
+        btn.addEventListener("click", () => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      })();
 
       function formatNow() {
         const input = el("inputSql").value;
