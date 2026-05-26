@@ -1800,7 +1800,7 @@
       function cleanupResult(sql) {
         let result = sql
           .replace(/[ \t]+\n/g, "\n")
-          .replace(/\n{3,}/g, "\n\n")
+          .replace(/\n{2,}/g, "\n")
           .replace(/\bWITH\s*\(\s*NOLOCK\s*\)/gi, "WITH(NOLOCK)")
           .replace(/\bTHEN\s+/gi, "THEN ")
           .replace(/\n\s*\)/g, "\n)")
@@ -1924,6 +1924,8 @@
         sql = postFormatFixes(sql);
         sql = cleanupResult(sql);
         sql = restoreSegments(sql, protectedData.store);
+        // 복원된 주석에 딸려온 \n으로 빈 줄이 새로 생길 수 있어 마지막으로 한 번 더 정리
+        sql = sql.replace(/[ \t]+\n/g, "\n").replace(/\n{2,}/g, "\n");
         return sql.trim();
       }
 
