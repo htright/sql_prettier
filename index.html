@@ -241,7 +241,7 @@
         font-family: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono",
           Menlo, monospace;
         font-size: 13px;
-        line-height: 1.6;
+        line-height: 1.45;
         color: var(--code);
         tab-size: 4;
         white-space: pre;
@@ -356,6 +356,156 @@
       textarea::-webkit-scrollbar-track {
         background: transparent;
       }
+
+      .code-editor {
+        display: flex;
+        align-items: stretch;
+        background: var(--panel-soft);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+      .code-editor:focus-within {
+        border-color: var(--accent);
+        box-shadow: var(--ring);
+      }
+      .code-gutter {
+        flex: 0 0 auto;
+        padding: 10px 10px 10px 14px;
+        font-family: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono",
+          Menlo, monospace;
+        font-size: 13px;
+        line-height: 1.45;
+        text-align: right;
+        color: var(--muted);
+        background: var(--panel-soft);
+        border-right: 1px solid var(--line);
+        white-space: pre;
+        user-select: none;
+        overflow-y: scroll;
+        scrollbar-width: none;
+        min-width: 48px;
+        opacity: 0.75;
+      }
+      .code-gutter::-webkit-scrollbar {
+        display: none;
+      }
+      .code-editor textarea {
+        flex: 1 1 auto;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        min-height: 640px;
+      }
+      .code-editor textarea:focus {
+        box-shadow: none;
+        border-color: transparent;
+      }
+
+      .diff-card {
+        margin-top: 16px;
+      }
+      .diff-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .diff-head strong {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .diff-summary {
+        font-family: "JetBrains Mono", Consolas, monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .diff-summary .add-count {
+        color: #16a34a;
+        font-weight: 700;
+      }
+      .diff-summary .rem-count {
+        color: #dc2626;
+        font-weight: 700;
+        margin-left: 10px;
+      }
+      .diff-view {
+        margin: 0;
+        padding: 6px 0;
+        font-family: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono",
+          Menlo, monospace;
+        font-size: 12.5px;
+        line-height: 1.55;
+        background: var(--panel-soft);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        max-height: 560px;
+        overflow: auto;
+      }
+      .diff-line {
+        display: grid;
+        grid-template-columns: 48px 48px 1fr;
+        border-left: 3px solid transparent;
+      }
+      .diff-gn {
+        text-align: right;
+        padding: 0 8px;
+        color: var(--muted);
+        opacity: 0.55;
+        user-select: none;
+        font-size: 11.5px;
+        line-height: inherit;
+      }
+      .diff-text {
+        white-space: pre;
+        padding: 0 8px;
+        overflow: hidden;
+        text-overflow: clip;
+      }
+      .diff-line.equal {
+        color: var(--text-soft);
+        opacity: 0.78;
+      }
+      .diff-line.add {
+        background: rgba(34, 197, 94, 0.13);
+        border-left-color: #22c55e;
+        color: #15803d;
+      }
+      .diff-line.remove {
+        background: rgba(239, 68, 68, 0.13);
+        border-left-color: #ef4444;
+        color: #b91c1c;
+      }
+      .diff-empty {
+        padding: 18px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      :root[data-theme="dark"] .diff-line.add {
+        background: rgba(34, 197, 94, 0.15);
+        color: #86efac;
+      }
+      :root[data-theme="dark"] .diff-line.remove {
+        background: rgba(239, 68, 68, 0.15);
+        color: #fca5a5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) .diff-line.add {
+          background: rgba(34, 197, 94, 0.15);
+          color: #86efac;
+        }
+        :root:not([data-theme="light"]) .diff-line.remove {
+          background: rgba(239, 68, 68, 0.15);
+          color: #fca5a5;
+        }
+      }
+
       @media (max-width: 1080px) {
         .layout {
           grid-template-columns: 1fr;
@@ -496,11 +646,18 @@
                 <!-- <button class="ghost" id="pasteSampleMessy">프로시저 예제</button> -->
                 <div><br /><br /></div>
               </div>
-              <textarea
-                id="inputSql"
-                spellcheck="false"
-                placeholder="여기에 SQL을 붙여넣으세요."
-              ></textarea>
+              <div class="code-editor">
+                <div
+                  class="code-gutter"
+                  id="inputGutter"
+                  aria-hidden="true"
+                >1</div>
+                <textarea
+                  id="inputSql"
+                  spellcheck="false"
+                  placeholder="여기에 SQL을 붙여넣으세요."
+                ></textarea>
+              </div>
             </div>
 
             <div>
@@ -511,15 +668,30 @@
                   <button class="ghost" id="swapBtn">결과를 입력으로</button>
                 </div>
               </div>
-              <textarea
-                id="outputSql"
-                spellcheck="false"
-                placeholder="포맷 결과가 여기에 표시됩니다."
-              ></textarea>
+              <div class="code-editor">
+                <div
+                  class="code-gutter"
+                  id="outputGutter"
+                  aria-hidden="true"
+                >1</div>
+                <textarea
+                  id="outputSql"
+                  spellcheck="false"
+                  placeholder="포맷 결과가 여기에 표시됩니다."
+                ></textarea>
+              </div>
             </div>
           </div>
         </section>
       </div>
+
+      <section class="card diff-card" id="diffCard" hidden>
+        <div class="diff-head">
+          <strong>변경 사항 (입력 vs 결과)</strong>
+          <span class="diff-summary" id="diffSummary"></span>
+        </div>
+        <div class="diff-view" id="diffView"></div>
+      </section>
     </div>
 
     <script>
@@ -1511,14 +1683,25 @@
       }
 
       function cleanupResult(sql) {
-        return sql
+        let result = sql
           .replace(/[ \t]+\n/g, "\n")
           .replace(/\n{3,}/g, "\n\n")
           .replace(/\bWITH\s*\(\s*NOLOCK\s*\)/gi, "WITH(NOLOCK)")
           .replace(/\bTHEN\s+/gi, "THEN ")
           .replace(/\n\s*\)/g, "\n)")
-          .replace(/\bGO\b\s*\n\s*\bGO\b/gi, "GO")
-          .trim();
+          .replace(/\bGO\b\s*\n\s*\bGO\b/gi, "GO");
+
+        // 연속된 @변수 선언 사이에 끼어든 빈 줄 제거 (PROC 파라미터/DECLARE 블록 등)
+        let prev;
+        do {
+          prev = result;
+          result = result.replace(
+            /([ \t]*(?:,\s*)?@[A-Za-z0-9_#]+[^\n]*)\n[ \t]*\n(?=[ \t]*(?:,\s*)?@[A-Za-z0-9_#]+)/g,
+            "$1\n",
+          );
+        } while (result !== prev);
+
+        return result.trim();
       }
 
       function postFormatFixes(sql) {
@@ -1650,6 +1833,157 @@
         el("status").textContent = message;
       }
 
+      function diffSignature(line) {
+        return line.trim().replace(/\s+/g, " ").toUpperCase();
+      }
+
+      function computeLineDiff(inputText, outputText) {
+        const aRaw = (inputText || "").split("\n");
+        const bRaw = (outputText || "").split("\n");
+        const a = aRaw.map(diffSignature);
+        const b = bRaw.map(diffSignature);
+        const m = a.length;
+        const n = b.length;
+
+        let ops;
+        if (m * n > 2_000_000) {
+          ops = [];
+          for (const v of aRaw) ops.push({ type: "remove", value: v });
+          for (const v of bRaw) ops.push({ type: "add", value: v });
+        } else {
+          const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1));
+          for (let i = m - 1; i >= 0; i--) {
+            for (let j = n - 1; j >= 0; j--) {
+              if (a[i] === b[j]) dp[i][j] = dp[i + 1][j + 1] + 1;
+              else dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+            }
+          }
+          ops = [];
+          let i = 0;
+          let j = 0;
+          while (i < m && j < n) {
+            if (a[i] === b[j]) {
+              ops.push({ type: "equal", value: bRaw[j] });
+              i++;
+              j++;
+            } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+              ops.push({ type: "remove", value: aRaw[i] });
+              i++;
+            } else {
+              ops.push({ type: "add", value: bRaw[j] });
+              j++;
+            }
+          }
+          while (i < m) ops.push({ type: "remove", value: aRaw[i++] });
+          while (j < n) ops.push({ type: "add", value: bRaw[j++] });
+        }
+
+        let oldNum = 0;
+        let newNum = 0;
+        for (const op of ops) {
+          if (op.type === "equal") {
+            op.oldNum = ++oldNum;
+            op.newNum = ++newNum;
+          } else if (op.type === "remove") {
+            op.oldNum = ++oldNum;
+          } else {
+            op.newNum = ++newNum;
+          }
+        }
+        return ops;
+      }
+
+      function renderDiff(input, output) {
+        const card = el("diffCard");
+        const view = el("diffView");
+        const summary = el("diffSummary");
+
+        if (!input && !output) {
+          card.hidden = true;
+          return;
+        }
+        card.hidden = false;
+
+        const ops = computeLineDiff(input, output);
+        let added = 0;
+        let removed = 0;
+        const fragment = document.createDocumentFragment();
+
+        for (const op of ops) {
+          const line = document.createElement("div");
+          line.className = "diff-line " + op.type;
+
+          const oldGn = document.createElement("span");
+          oldGn.className = "diff-gn old";
+          oldGn.textContent = op.oldNum != null ? String(op.oldNum) : "";
+
+          const newGn = document.createElement("span");
+          newGn.className = "diff-gn new";
+          newGn.textContent = op.newNum != null ? String(op.newNum) : "";
+
+          const text = document.createElement("span");
+          text.className = "diff-text";
+          const marker =
+            op.type === "add" ? "+ " : op.type === "remove" ? "- " : "  ";
+          text.textContent = marker + (op.value || "");
+
+          line.appendChild(oldGn);
+          line.appendChild(newGn);
+          line.appendChild(text);
+          fragment.appendChild(line);
+
+          if (op.type === "add") added++;
+          else if (op.type === "remove") removed++;
+        }
+
+        view.innerHTML = "";
+        if (added === 0 && removed === 0) {
+          const empty = document.createElement("div");
+          empty.className = "diff-empty";
+          empty.textContent = "내용 변화 없음 (공백/줄바꿈도 동일)";
+          view.appendChild(empty);
+        } else {
+          view.appendChild(fragment);
+        }
+
+        summary.innerHTML =
+          `<span class="add-count">+${added}</span>` +
+          `<span class="rem-count">-${removed}</span>`;
+      }
+
+      function setupGutter(textareaId, gutterId) {
+        const ta = el(textareaId);
+        const gutter = el(gutterId);
+        if (!ta || !gutter) return () => {};
+
+        function update() {
+          const value = ta.value;
+          const count = value === "" ? 1 : value.split("\n").length;
+          let s = "";
+          for (let i = 1; i <= count; i++) s += i + "\n";
+          gutter.textContent = s;
+        }
+
+        function syncScroll() {
+          gutter.scrollTop = ta.scrollTop;
+        }
+
+        ta.addEventListener("input", update);
+        ta.addEventListener("scroll", syncScroll);
+        update();
+        return update;
+      }
+
+      const gutterUpdaters = {
+        input: setupGutter("inputSql", "inputGutter"),
+        output: setupGutter("outputSql", "outputGutter"),
+      };
+
+      function refreshGutters() {
+        if (gutterUpdaters.input) gutterUpdaters.input();
+        if (gutterUpdaters.output) gutterUpdaters.output();
+      }
+
       function formatNow() {
         const input = el("inputSql").value;
         const output = prettifySql(input, getOptions());
@@ -1659,6 +1993,8 @@
             ? `포맷 완료\n라인 수: ${output.split("\n").length}`
             : "입력된 SQL이 없습니다.",
         );
+        renderDiff(input, output);
+        refreshGutters();
       }
 
       el("formatBtn").addEventListener("click", formatNow);
@@ -1676,6 +2012,7 @@
       el("swapBtn").addEventListener("click", () => {
         el("inputSql").value = el("outputSql").value;
         setStatus("결과를 입력 영역으로 옮겼습니다.");
+        refreshGutters();
       });
 
       const sample = `CREATE PROCEDURE YLW_SASServiceCloseRemarkMailSend
@@ -1777,6 +2114,9 @@ END`;
         el("inputSql").value = "";
         el("outputSql").value = "";
         setStatus("초기화했습니다.");
+        refreshGutters();
+        const diffCard = el("diffCard");
+        if (diffCard) diffCard.hidden = true;
       });
     </script>
   </body>
