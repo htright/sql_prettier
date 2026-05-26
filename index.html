@@ -364,6 +364,10 @@
         border: 1px solid var(--line);
         border-radius: 10px;
         overflow: hidden;
+        height: 640px;
+        max-height: calc(100vh - 220px);
+        min-height: 360px;
+        resize: vertical;
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
       }
       .code-editor:focus-within {
@@ -396,7 +400,10 @@
         border: 0;
         border-radius: 0;
         background: transparent;
-        min-height: 640px;
+        min-height: 0;
+        height: auto;
+        resize: none;
+        overflow: auto;
       }
       .code-editor textarea:focus {
         box-shadow: none;
@@ -554,6 +561,10 @@
         }
         textarea {
           min-height: 380px;
+        }
+        .code-editor {
+          height: 420px;
+          max-height: calc(100vh - 180px);
         }
       }
     </style>
