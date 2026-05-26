@@ -1491,8 +1491,7 @@
             const current = lines[j].trim();
             if (
               !current ||
-              /^FROM\b/i.test(current) ||
-              /^(WITH|WHERE|GROUP BY|ORDER BY|HAVING|UNION|JOIN|LEFT JOIN|RIGHT JOIN|FULL JOIN|INNER JOIN|CROSS JOIN|OUTER APPLY|CROSS APPLY)\b/i.test(
+              /^(FROM|WITH|WHERE|GROUP BY|ORDER BY|HAVING|UNION|JOIN|LEFT JOIN|RIGHT JOIN|FULL JOIN|INNER JOIN|CROSS JOIN|OUTER APPLY|CROSS APPLY|SELECT|EXEC|EXECUTE|IF|BEGIN|DECLARE|SET|RETURN|UPDATE|INSERT|DELETE|CREATE|ALTER|DROP|TRUNCATE|WHILE|GO)\b/i.test(
                 current,
               )
             ) {
