@@ -1,0 +1,1485 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SQL Prettier Tool - Company Standard</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --line: #d9deea;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --accent: #2563eb;
+        --accent-2: #1d4ed8;
+        --code: #0f172a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 1520px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .title {
+        margin-bottom: 16px;
+      }
+      .title h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+      .title p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 16px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.04);
+      }
+      .card h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+      }
+      .rule-group {
+        display: grid;
+        gap: 12px;
+      }
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+      .field label {
+        font-size: 13px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      input[type="number"],
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        background: #fff;
+        color: var(--text);
+      }
+      textarea {
+        min-height: 640px;
+        resize: vertical;
+        font-family: Consolas, "Courier New", monospace;
+        line-height: 1.55;
+        color: var(--code);
+        tab-size: 4;
+        white-space: pre;
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+      }
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .primary {
+        background: var(--accent);
+        color: white;
+      }
+      .primary:hover {
+        background: var(--accent-2);
+      }
+      .secondary {
+        background: #eef2ff;
+        color: #1e3a8a;
+      }
+      .ghost {
+        background: #f3f4f6;
+        color: #111827;
+      }
+      .editor-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .editor-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        gap: 8px;
+      }
+      .editor-head strong {
+        font-size: 15px;
+      }
+      .note {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #f8fafc;
+        border: 1px dashed var(--line);
+        border-radius: 10px;
+        font-size: 13px;
+        color: var(--muted);
+        min-height: 42px;
+        white-space: pre-wrap;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 10px;
+      }
+      @media (max-width: 1080px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .editor-grid {
+          grid-template-columns: 1fr;
+        }
+        textarea {
+          min-height: 380px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="title">
+        <h1>sql_prettier_htjung</h1>
+        <div class="badge">test</div>
+      </div>
+
+      <div class="layout">
+        <aside class="card">
+          <h2>포맷 규칙</h2>
+          <div class="rule-group">
+            <div class="field">
+              <label for="indentSize">들여쓰기 칸 수</label>
+              <input id="indentSize" type="number" min="1" max="8" value="4" />
+            </div>
+
+            <div class="field">
+              <label for="keywordCase">키워드 대소문자</label>
+              <select id="keywordCase">
+                <option value="upper" selected>UPPER</option>
+                <option value="lower">lower</option>
+              </select>
+            </div>
+            <!-- 테스트스윕으로 옵션 선택이 의미가 없어보임
+          <label class="check"><input id="alignDeclare" type="checkbox" checked /> DECLARE 변수 정렬</label>
+          <label class="check"><input id="alignProcParams" type="checkbox" checked /> PROC 파라미터 정렬</label>
+          <label class="check"><input id="alignSelectList" type="checkbox" checked /> SELECT 별칭 정렬</label>
+          <label class="check"><input id="alignSetClause" type="checkbox" checked /> SET 절 정렬</label>
+          <label class="check"><input id="breakBeforeComma" type="checkbox" checked /> 쉼표를 줄 앞에 배치</label>
+          <label class="check"><input id="newlineBeforeJoin" type="checkbox" checked /> JOIN 전 줄바꿈</label>
+          <label class="check"><input id="newlineBeforeAnd" type="checkbox" checked /> AND / OR 전 줄바꿈</label>
+          <label class="check"><input id="spaceAroundOperator" type="checkbox" checked /> 연산자 주변 공백 정리</label> -->
+          </div>
+
+          <div class="button-row">
+            <button class="primary" id="formatBtn">포맷 실행</button>
+            <!-- <button class="secondary" id="sampleBtn">예제 넣기</button> -->
+            <button class="ghost" id="resetBtn">초기화</button>
+          </div>
+
+          <div class="note">
+            test
+            <!-- 기준 스타일
+          <br>1. JOIN + ON 한 줄 유지
+          <br>2. ON 아래 AND는 ON 시작 위치 정렬
+          <br>3. WHERE 아래 AND는 두 칸 들여쓰기
+          <br>4. SELECT 컬럼은 쉼표 앞 정렬 + AS 별칭 정렬
+          <br>5. PROC/DECLARE/EXEC는 세로 정렬 -->
+          </div>
+
+          <div class="status" id="status">준비됨</div>
+        </aside>
+
+        <section class="card">
+          <div class="editor-grid">
+            <div>
+              <div class="editor-head">
+                <strong>입력 SQL</strong>
+                <!-- <button class="ghost" id="pasteSampleMessy">프로시저 예제</button> -->
+                <div><br /><br /></div>
+              </div>
+              <textarea
+                id="inputSql"
+                spellcheck="false"
+                placeholder="여기에 SQL을 붙여넣으세요."
+              ></textarea>
+            </div>
+
+            <div>
+              <div class="editor-head">
+                <strong>포맷 결과</strong>
+                <div class="button-row" style="margin: 0">
+                  <button class="secondary" id="copyBtn">복사</button>
+                  <button class="ghost" id="swapBtn">결과를 입력으로</button>
+                </div>
+              </div>
+              <textarea
+                id="outputSql"
+                spellcheck="false"
+                placeholder="포맷 결과가 여기에 표시됩니다."
+              ></textarea>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const el = (id) => document.getElementById(id);
+
+      const KEYWORDS = [
+        "CREATE PROCEDURE",
+        "ALTER PROCEDURE",
+        "CREATE PROC",
+        "ALTER PROC",
+        "PROCEDURE",
+        "PROC",
+        "LEFT OUTER JOIN",
+        "RIGHT OUTER JOIN",
+        "FULL OUTER JOIN",
+        "INNER JOIN",
+        "LEFT JOIN",
+        "RIGHT JOIN",
+        "FULL JOIN",
+        "CROSS JOIN",
+        "OUTER APPLY",
+        "CROSS APPLY",
+        "GROUP BY",
+        "ORDER BY",
+        "PARTITION BY",
+        "UNION ALL",
+        "NOT EXISTS",
+        "NOT IN",
+        "IS NOT NULL",
+        "IS NULL",
+        "INSERT INTO",
+        "DELETE FROM",
+        "BEGIN TRY",
+        "END TRY",
+        "BEGIN CATCH",
+        "END CATCH",
+        "SELECT",
+        "FROM",
+        "WHERE",
+        "HAVING",
+        "JOIN",
+        "ON",
+        "AND",
+        "OR",
+        "INSERT",
+        "INTO",
+        "VALUES",
+        "UPDATE",
+        "SET",
+        "DELETE",
+        "DECLARE",
+        "BEGIN",
+        "END",
+        "IF",
+        "ELSE",
+        "RETURN",
+        "EXECUTE",
+        "EXEC",
+        "CASE",
+        "WHEN",
+        "THEN",
+        "DISTINCT",
+        "TOP",
+        "AS",
+        "WITH",
+        "NOLOCK",
+        "OUTPUT",
+        "OVER",
+        "EXISTS",
+        "IN",
+        "UNION",
+        "WHILE",
+        "DROP",
+        "CREATE",
+        "ALTER",
+      ];
+
+      const MAIN_CLAUSES = [
+        "SELECT",
+        "FROM",
+        "WHERE",
+        "GROUP BY",
+        "ORDER BY",
+        "HAVING",
+        "INSERT INTO",
+        "VALUES",
+        "UPDATE",
+        "DELETE FROM",
+        "DELETE",
+        "SET",
+      ];
+
+      const JOIN_REGEX =
+        /(LEFT\s+OUTER\s+JOIN|RIGHT\s+OUTER\s+JOIN|FULL\s+OUTER\s+JOIN|INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|FULL\s+JOIN|CROSS\s+JOIN|JOIN|OUTER\s+APPLY|CROSS\s+APPLY)/gi;
+      const CLAUSE_START_REGEX =
+        /^(WITH|SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|SET|VALUES|INSERT INTO|UPDATE|DELETE FROM|DELETE|DECLARE|IF|ELSE|WHILE|BEGIN|END|RETURN|EXEC|EXECUTE|CREATE|ALTER|DROP|TRUNCATE|LEFT OUTER JOIN|RIGHT OUTER JOIN|FULL OUTER JOIN|INNER JOIN|LEFT JOIN|RIGHT JOIN|FULL JOIN|CROSS JOIN|JOIN|OUTER APPLY|CROSS APPLY|ON|AND|OR)\b/i;
+
+      function escapeRegExp(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+
+      function keywordTransform(word, mode) {
+        return mode === "lower" ? word.toLowerCase() : word.toUpperCase();
+      }
+
+      function normalizeLineBreaks(sql) {
+        return sql.replace(/\r\n?/g, "\n");
+      }
+
+      function protectSegments(sql) {
+        const store = [];
+        const patterns = [
+          /\/\*[\s\S]*?\*\//g,
+          /--[^\n]*/g,
+          /\[[^\]\n]+\]/g,
+          /N?'(?:''|[^'])*'/g,
+        ];
+
+        let result = sql;
+        patterns.forEach((pattern) => {
+          result = result.replace(pattern, (match) => {
+            const token = `__PROTECTED_${store.length}__`;
+            store.push(match);
+            return token;
+          });
+        });
+        return { result, store };
+      }
+
+      function restoreSegments(sql, store) {
+        let result = sql;
+        store.forEach((value, index) => {
+          result = result.replaceAll(`__PROTECTED_${index}__`, value);
+        });
+        return result;
+      }
+
+      function applyKeywordCase(sql, mode) {
+        const sorted = [...KEYWORDS].sort((a, b) => b.length - a.length);
+        let result = sql;
+
+        for (const kw of sorted) {
+          const pattern = new RegExp(
+            `\\b${escapeRegExp(kw).replace(/ /g, "\\s+")}\\b`,
+            "gi",
+          );
+          result = result.replace(pattern, keywordTransform(kw, mode));
+        }
+
+        return result;
+      }
+
+      function collapseSpaces(sql) {
+        return sql
+          .replace(/[ \t]+/g, " ")
+          .replace(/ +\n/g, "\n")
+          .replace(/\n +/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      }
+
+      function normalizeMissingKeywordSpaces(sql) {
+        const keywordLookahead = [
+          "AND",
+          "OR",
+          "WHERE",
+          "HAVING",
+          "GROUP\\s+BY",
+          "ORDER\\s+BY",
+          "FROM",
+          "SELECT",
+          "LEFT\\s+OUTER\\s+JOIN",
+          "RIGHT\\s+OUTER\\s+JOIN",
+          "FULL\\s+OUTER\\s+JOIN",
+          "INNER\\s+JOIN",
+          "LEFT\\s+JOIN",
+          "RIGHT\\s+JOIN",
+          "FULL\\s+JOIN",
+          "CROSS\\s+JOIN",
+          "JOIN",
+          "OUTER\\s+APPLY",
+          "CROSS\\s+APPLY",
+        ].join("|");
+
+        let result = sql;
+
+        // 문자열/주석/대괄호 식별자 보호 토큰 뒤에 키워드가 바로 붙은 경우
+        result = result.replace(
+          new RegExp(`(__PROTECTED_\\d+__)(?=(${keywordLookahead})\\b)`, "gi"),
+          "$1 ",
+        );
+
+        // 닫는 괄호 뒤에 키워드가 바로 붙은 경우: )AND, )ORDER BY
+        result = result.replace(
+          new RegExp(`(\\))(?=(${keywordLookahead})\\b)`, "gi"),
+          "$1 ",
+        );
+
+        // 숫자 리터럴 뒤에 키워드가 바로 붙은 경우만 보정
+        // Col1AND, @P1AND 같은 식별자/변수명은 깨지지 않도록 숫자 앞 경계를 확인한다.
+        const numericLiteral = "(^|[^A-Za-z0-9_@#\\]\\.])(\\d+(?:\\.\\d+)?)";
+        result = result.replace(
+          new RegExp(`${numericLiteral}(?=(${keywordLookahead})\\b)`, "gi"),
+          "$1$2 ",
+        );
+
+        return result;
+      }
+
+      function normalizeOperators(sql) {
+        let result = sql;
+
+        const binaryPatterns = [
+          { regex: /(\S)[ \t]*(<>|!=|>=|<=|=)[ \t]*(\S)/g, repl: "$1 $2 $3" },
+          { regex: /([\w\]\)])[ \t]*(\+)[ \t]*([\w@#\[(])/g, repl: "$1 $2 $3" },
+          { regex: /([\w\]\)])[ \t]*(\/)[ \t]*([\w@#\[(])/g, repl: "$1 $2 $3" },
+          { regex: /([\w\]\)])[ \t]*(\*)[ \t]*([\w@#\[(])/g, repl: "$1 $2 $3" },
+          { regex: /([\w\]\)])[ \t]*(-)[ \t]*([\w@#\[(])/g, repl: "$1 $2 $3" },
+        ];
+
+        binaryPatterns.forEach(({ regex, repl }) => {
+          result = result.replace(regex, repl);
+        });
+
+        return result
+          .replace(/\(\s+/g, "(")
+          .replace(/\s+\)/g, ")")
+          .replace(/[ \t]+,/g, ",");
+      }
+
+      function protectJoinPhrases(sql) {
+        const joins = [];
+        const result = sql.replace(JOIN_REGEX, (match) => {
+          const token = `__JOIN_${joins.length}__`;
+          joins.push(match);
+          return token;
+        });
+        return { result, joins };
+      }
+
+      function restoreJoinPhrases(sql, joins, mode) {
+        let result = sql;
+        joins.forEach((value, idx) => {
+          result = result.replaceAll(
+            `__JOIN_${idx}__`,
+            keywordTransform(value.toUpperCase(), mode),
+          );
+        });
+        return result;
+      }
+
+      function protectBetweenAnd(sql, options) {
+        const betweenAnds = [];
+        const valuePattern =
+          "(?:__PROTECTED_\\d+__|@[A-Za-z0-9_#]+|#[A-Za-z0-9_#]+|[A-Za-z0-9_\\.\\[\\]]+|\\([^)]*\\))";
+        const pattern = new RegExp(
+          `\\bBETWEEN\\s+(${valuePattern})\\s+AND\\s+(${valuePattern})`,
+          "gi",
+        );
+
+        const result = sql.replace(pattern, (match) => {
+          const token = `__BETWEEN_AND_${betweenAnds.length}__`;
+          betweenAnds.push(keywordTransform("AND", options.keywordCase));
+          return match.replace(/\s+AND\s+/i, ` ${token} `);
+        });
+
+        return { result, betweenAnds };
+      }
+
+      function restoreBetweenAnd(sql, betweenAnds) {
+        let result = sql;
+        betweenAnds.forEach((value, idx) => {
+          result = result.replaceAll(`__BETWEEN_AND_${idx}__`, value);
+        });
+        return result;
+      }
+
+      function splitTopLevel(text, delimiter = ",") {
+        const chunks = [];
+        let current = "";
+        let depth = 0;
+
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (ch === "(") depth += 1;
+          else if (ch === ")") depth = Math.max(0, depth - 1);
+
+          if (ch === delimiter && depth === 0) {
+            chunks.push(current.trim());
+            current = "";
+          } else {
+            current += ch;
+          }
+        }
+
+        if (current.trim()) chunks.push(current.trim());
+        return chunks;
+      }
+
+      function breakClauses(sql, options) {
+        let result = ` ${sql} `;
+        const joinProtected = protectJoinPhrases(result);
+        result = joinProtected.result;
+
+        for (const clause of MAIN_CLAUSES) {
+          const view = keywordTransform(clause, options.keywordCase);
+          const pattern = new RegExp(
+            `\\s+${escapeRegExp(view).replace(/ /g, "\\s+")}\\b`,
+            "g",
+          );
+          result = result.replace(pattern, `\n${view}`);
+        }
+
+        if (options.newlineBeforeJoin) {
+          result = result.replace(/\s+(__JOIN_\d+__)/g, "\n$1");
+        }
+
+        if (options.newlineBeforeAnd) {
+          const betweenProtected = protectBetweenAnd(result, options);
+          result = betweenProtected.result;
+
+          const andWord = keywordTransform("AND", options.keywordCase);
+          const orWord = keywordTransform("OR", options.keywordCase);
+          result = result.replace(
+            new RegExp(`\\s+${andWord}\\b`, "g"),
+            `\n${andWord}`,
+          );
+          result = result.replace(
+            new RegExp(`\\s+${orWord}\\b`, "g"),
+            `\n${orWord}`,
+          );
+          result = restoreBetweenAnd(result, betweenProtected.betweenAnds);
+        }
+
+        result = restoreJoinPhrases(
+          result,
+          joinProtected.joins,
+          options.keywordCase,
+        );
+        return result.replace(/\n{3,}/g, "\n\n").trim();
+      }
+
+      function splitSelectBodyPreservingHead(body) {
+        const trimmed = body.trim();
+        const topMatch = trimmed.match(
+          /^(TOP\s*\([^)]*\)|TOP\s+\d+\s*(PERCENT)?|DISTINCT)\b\s*(.*)$/i,
+        );
+
+        if (!topMatch) {
+          return { head: "", remainder: trimmed };
+        }
+
+        return {
+          head: topMatch[1].trim(),
+          remainder: topMatch[3].trim(),
+        };
+      }
+
+      function formatCteBlocks(sql, options) {
+        const withWord = keywordTransform("WITH", options.keywordCase);
+        const asWord = keywordTransform("AS", options.keywordCase);
+
+        return sql
+          .replace(
+            /\bWITH\s+([A-Za-z0-9_#\[\]\.]+)\s+AS\s*\(/gi,
+            `${withWord} $1 ${asWord} (`,
+          )
+          .replace(/\)\s*,\s*([A-Za-z0-9_#\[\]\.]+\s+AS\s*\()/gi, `)\n    , $1`)
+          .replace(/\n\s*,\s*([A-Za-z0-9_#\[\]\.]+\s+AS\s*\()/gi, `\n    , $1`);
+      }
+
+      function formatCaseBlocks(sql, options) {
+        const caseWord = keywordTransform("CASE", options.keywordCase);
+        const whenWord = keywordTransform("WHEN", options.keywordCase);
+        const elseWord = keywordTransform("ELSE", options.keywordCase);
+        const endWord = keywordTransform("END", options.keywordCase);
+        const thenWord = keywordTransform("THEN", options.keywordCase);
+
+        return sql
+          .replace(/\s*\bCASE\b\s*/gi, `\n${caseWord}\n`)
+          .replace(/\s*\bWHEN\b\s*/gi, `\n${whenWord} `)
+          .replace(/\s*\bELSE\b\s*/gi, `\n${elseWord} `)
+          .replace(/\s*\bEND\b\s*/gi, `\n${endWord}`)
+          .replace(/\s*\bTHEN\b\s*/gi, ` ${thenWord} `)
+          .replace(/\n{3,}/g, "\n\n");
+      }
+
+      function formatInsertColumns(sql, options) {
+        const lines = sql.split("\n");
+        const out = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (!/^INSERT\s+INTO\b/i.test(line) || !/\(/.test(line)) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          let collected = [line];
+          let depth =
+            (line.match(/\(/g) || []).length - (line.match(/\)/g) || []).length;
+          let j = i + 1;
+
+          while (j < lines.length && depth > 0) {
+            const current = lines[j].trim();
+            collected.push(current);
+            depth +=
+              (current.match(/\(/g) || []).length -
+              (current.match(/\)/g) || []).length;
+            j += 1;
+          }
+
+          const joined = collected.join(" ").replace(/\s+/g, " ").trim();
+          const m = joined.match(/^(INSERT\s+INTO\s+.+?)\s*\((.+)\)$/i);
+
+          if (!m) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          const header = m[1].trim();
+          const columns = splitTopLevel(m[2]).filter(Boolean);
+
+          if (columns.length <= 1) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          out.push(header);
+          out.push("(");
+          columns.forEach((col, idx) => {
+            const prefix = idx === 0 ? "     " : "    ,";
+            out.push(prefix + col.trim());
+          });
+          out.push(")");
+
+          i = j - 1;
+        }
+
+        return out.join("\n");
+      }
+
+      function formatProcParams(sql, options) {
+        if (!options.alignProcParams) return sql;
+
+        const lines = sql.split("\n");
+        const out = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (!/^(CREATE|ALTER)\s+(PROC|PROCEDURE)\b/i.test(line)) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          let j = i;
+          const block = [];
+
+          while (j < lines.length) {
+            const current = lines[j].trim();
+            block.push(current);
+            if (/\bAS\b/i.test(current)) break;
+            j += 1;
+          }
+
+          const fullText = block.join(" ").replace(/\s+/g, " ").trim();
+          const m = fullText.match(
+            /^((?:CREATE|ALTER)\s+(?:PROC|PROCEDURE)\s+[^\s]+)\s+(.+?)\s+AS$/i,
+          );
+
+          if (!m) {
+            for (let k = i; k <= j; k++) out.push(lines[k]);
+            i = j;
+            continue;
+          }
+
+          const header = m[1];
+          const paramText = m[2];
+          const params = splitTopLevel(paramText).filter(Boolean);
+
+          if (!params.length || !params.every((v) => /^@/.test(v.trim()))) {
+            for (let k = i; k <= j; k++) out.push(lines[k]);
+            i = j;
+            continue;
+          }
+
+          const parsed = params.map(parseVarDeclarationItem);
+
+          if (parsed.some((v) => v.raw)) {
+            for (let k = i; k <= j; k++) out.push(lines[k]);
+            i = j;
+            continue;
+          }
+
+          const nameW = Math.max(...parsed.map((v) => v.name.length));
+          const typeW = Math.max(...parsed.map((v) => v.type.length));
+
+          out.push(header);
+          parsed.forEach((v, idx) => {
+            const prefix = idx === 0 ? "     " : "    ,";
+            out.push(
+              prefix +
+                v.name.padEnd(nameW) +
+                "  " +
+                v.type.padEnd(typeW) +
+                (v.assign ? " = " + v.assign : ""),
+            );
+          });
+          out.push(" AS");
+
+          i = j;
+        }
+
+        return out.join("\n");
+      }
+
+      function formatDeclareBlocks(sql, options) {
+        if (!options.alignDeclare) return sql;
+
+        const lines = sql.split("\n");
+        const out = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (!/^DECLARE\b/i.test(line)) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          let j = i;
+          const block = [];
+
+          while (j < lines.length) {
+            const current = lines[j].trim();
+            if (j > i && CLAUSE_START_REGEX.test(current)) break;
+            if (current !== "") block.push(current);
+            j += 1;
+          }
+
+          const fullText = block
+            .join(" ")
+            .replace(/^DECLARE\s+/i, "")
+            .replace(/\s*,\s*/g, ", ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          const items = splitTopLevel(fullText).filter(Boolean);
+
+          if (!items.length || !items.every((v) => /^@/.test(v.trim()))) {
+            for (let k = i; k < j; k++) out.push(lines[k]);
+            i = j - 1;
+            continue;
+          }
+
+          const parsed = items.map(parseVarDeclarationItem);
+
+          if (parsed.some((v) => v.raw)) {
+            for (let k = i; k < j; k++) out.push(lines[k]);
+            i = j - 1;
+            continue;
+          }
+
+          const nameW = Math.max(...parsed.map((v) => v.name.length));
+          const typeW = Math.max(...parsed.map((v) => v.type.length));
+
+          out.push(
+            keywordTransform("DECLARE", options.keywordCase) +
+              " " +
+              parsed[0].name.padEnd(nameW) +
+              "  " +
+              parsed[0].type.padEnd(typeW) +
+              (parsed[0].assign ? " = " + parsed[0].assign : ""),
+          );
+          for (let k = 1; k < parsed.length; k++) {
+            const v = parsed[k];
+            out.push(
+              "        ," +
+                " " +
+                v.name.padEnd(nameW) +
+                "  " +
+                v.type.padEnd(typeW) +
+                (v.assign ? " = " + v.assign : ""),
+            );
+          }
+
+          i = j - 1;
+        }
+
+        return out.join("\n");
+      }
+
+      function formatExecParams(sql, options) {
+        const lines = sql.split("\n");
+        const out = [];
+        const execWord = keywordTransform("EXEC", options.keywordCase);
+
+        for (const raw of lines) {
+          const line = raw.trim();
+          if (!/^EXEC(?:UTE)?\b/i.test(line) || !/@/.test(line)) {
+            out.push(raw);
+            continue;
+          }
+
+          const match = line.match(/^(EXEC(?:UTE)?\s+[^@\s]+)\s+(.+)$/i);
+          if (!match) {
+            out.push(raw);
+            continue;
+          }
+
+          const header = match[1]
+            .replace(/^EXECUTE/i, execWord)
+            .replace(/^EXEC/i, execWord)
+            .trim();
+          const params = splitTopLevel(match[2].trim());
+          if (params.length <= 1) {
+            out.push(raw);
+            continue;
+          }
+
+          out.push(header);
+          params.forEach((p, idx) => {
+            out.push((idx === 0 ? "     " : "    ,") + p.trim());
+          });
+        }
+
+        return out.join("\n");
+      }
+
+      function splitAssignmentTopLevel(text) {
+        let depth = 0;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (ch === "(") depth += 1;
+          else if (ch === ")") depth = Math.max(0, depth - 1);
+          else if (ch === "=" && depth === 0) {
+            return {
+              left: text.slice(0, i).trim(),
+              right: text.slice(i + 1).trim(),
+            };
+          }
+        }
+        return { left: text.trim(), right: "" };
+      }
+
+      function parseVarDeclarationItem(item) {
+        const split = splitAssignmentTopLevel(item.trim());
+        const m = split.left.match(/^(@[A-Za-z0-9_#]+)\s+(.+)$/);
+        if (!m) return { raw: item.trim() };
+        return {
+          name: m[1],
+          type: m[2].trim(),
+          assign: split.right,
+        };
+      }
+
+      function splitAlias(item) {
+        const m = item.match(/^(.*?)(\s+AS\s+.+)$/i);
+        if (m) return { left: m[1].trim(), alias: m[2].trim() };
+        return { left: item.trim(), alias: "" };
+      }
+
+      function formatSelectLists(sql, options) {
+        if (!options.alignSelectList) return sql;
+
+        const lines = sql.split("\n");
+        const out = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (!/^SELECT\b/i.test(line)) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          const collected = [line.replace(/^SELECT\s+/i, "")];
+          let j = i + 1;
+
+          while (j < lines.length) {
+            const current = lines[j].trim();
+            if (
+              !current ||
+              /^FROM\b/i.test(current) ||
+              /^(WITH|WHERE|GROUP BY|ORDER BY|HAVING|UNION|JOIN|LEFT JOIN|RIGHT JOIN|FULL JOIN|INNER JOIN|CROSS JOIN|OUTER APPLY|CROSS APPLY)\b/i.test(
+                current,
+              )
+            ) {
+              break;
+            }
+            collected.push(current.replace(/^,\s*/, ""));
+            j += 1;
+          }
+
+          const joined = collected.join(" ");
+          const { head, remainder } = splitSelectBodyPreservingHead(joined);
+          const parts = splitTopLevel(remainder).filter(Boolean);
+
+          if (parts.length <= 1) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          const parsed = parts.map(splitAlias);
+          const leftWidth = Math.max(...parsed.map((v) => v.left.length));
+          const selectHead = head ? `SELECT ${head} ` : "SELECT ";
+
+          parsed.forEach((v, idx) => {
+            const aliasText = v.alias ? " " + v.alias : "";
+            if (idx === 0) {
+              out.push(selectHead + v.left.padEnd(leftWidth) + aliasText);
+            } else {
+              const commaPrefix = options.breakBeforeComma
+                ? "          ,"
+                : "          ";
+              out.push(
+                commaPrefix +
+                  (options.breakBeforeComma ? "" : ", ") +
+                  v.left.padEnd(leftWidth) +
+                  aliasText,
+              );
+            }
+          });
+
+          i = j - 1;
+        }
+
+        return out.join("\n");
+      }
+
+      function formatSetClauses(sql, options) {
+        if (!options.alignSetClause) return sql;
+
+        const lines = sql.split("\n");
+        const out = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (!/^SET\b/i.test(line)) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          const collected = [line.replace(/^SET\s+/i, "")];
+          let j = i + 1;
+
+          while (j < lines.length) {
+            const current = lines[j].trim();
+            if (!current || CLAUSE_START_REGEX.test(current)) break;
+            collected.push(current.replace(/^,\s*/, ""));
+            j += 1;
+          }
+
+          const items = splitTopLevel(collected.join(" ")).filter(Boolean);
+          if (items.length <= 1) {
+            out.push(lines[i]);
+            continue;
+          }
+
+          out.push(
+            keywordTransform("SET", options.keywordCase) + " " + items[0],
+          );
+          for (let k = 1; k < items.length; k++) {
+            out.push("    ," + " " + items[k]);
+          }
+
+          i = j - 1;
+        }
+
+        let result = out.join("\n");
+        result = result.replace(
+          /(SET\s+[^=\n]+\=)\s*\n\s*CASE\b/gi,
+          "$1  CASE",
+        );
+        result = result.replace(/(,\s*[^=\n]+\=)\s*\n\s*CASE\b/gi, "$1  CASE");
+        return result;
+      }
+
+      function alignJoinBlock(lines, startIndex, baseIndent) {
+        const joinLine = lines[startIndex].trim().replace(/\s+/g, " ");
+        let j = startIndex + 1;
+        const out = [];
+        let merged = baseIndent + joinLine;
+        let anchorCol = -1;
+
+        if (j < lines.length && /^ON\b/i.test(lines[j].trim())) {
+          const onLine = lines[j].trim().replace(/\s+/g, " ");
+          merged += " " + onLine;
+          anchorCol = merged.toUpperCase().indexOf(" ON ");
+          if (anchorCol < 0) anchorCol = merged.toUpperCase().indexOf("ON ");
+          j += 1;
+        }
+
+        out.push(merged);
+
+        while (j < lines.length && /^(AND|OR)\b/i.test(lines[j].trim())) {
+          const current = lines[j].trim().replace(/\s+/g, " ");
+          if (anchorCol >= 0) {
+            out.push(
+              baseIndent +
+                " ".repeat(Math.max(anchorCol - baseIndent.length, 1)) +
+                current,
+            );
+          } else {
+            out.push(baseIndent + "     " + current);
+          }
+          j += 1;
+        }
+
+        return { lines: out, nextIndex: j - 1 };
+      }
+
+      function alignWhereBlock(lines, startIndex, baseIndent) {
+        const out = [];
+        const whereLine = lines[startIndex].trim().replace(/\s+/g, " ");
+        out.push(baseIndent + whereLine);
+
+        let j = startIndex + 1;
+        while (j < lines.length) {
+          const current = lines[j].trim();
+          if (!/^(AND|OR)\b/i.test(current)) break;
+
+          const normalized = current.replace(/\s+/g, " ");
+          if (/^OR\b/i.test(normalized)) {
+            out.push(baseIndent + "   " + normalized);
+          } else {
+            out.push(baseIndent + "  " + normalized);
+          }
+          j += 1;
+        }
+
+        return { lines: out, nextIndex: j - 1 };
+      }
+
+      function indentLines(sql, options) {
+        const unit = " ".repeat(options.indentSize);
+        const lines = sql.split("\n");
+        const out = [];
+
+        let level = 0;
+        let procBodyLevel = 0;
+        let inProcHeader = false;
+        let singleLineIfDepth = 0;
+        let execContinuation = false;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) {
+            out.push("");
+            execContinuation = false;
+            continue;
+          }
+
+          const upper = line.toUpperCase();
+
+          if (/^(CREATE|ALTER)\s+(PROC|PROCEDURE)\b/.test(upper)) {
+            inProcHeader = true;
+            procBodyLevel = 0;
+            out.push(line);
+            continue;
+          }
+
+          if (inProcHeader && /^@/.test(line)) {
+            out.push(unit + line);
+            continue;
+          }
+
+          if (inProcHeader && /^AS\b/.test(upper)) {
+            out.push("AS");
+            out.push("");
+            inProcHeader = false;
+            procBodyLevel = 1;
+            continue;
+          }
+
+          let tempIndent = 0;
+          if (/^(END|ELSE|END TRY|END CATCH)\b/.test(upper)) {
+            level = Math.max(0, level - 1);
+            singleLineIfDepth = 0;
+          }
+
+          if (
+            singleLineIfDepth > 0 &&
+            !/^(AND|OR)\b/i.test(line) &&
+            !/^(LEFT OUTER JOIN|RIGHT OUTER JOIN|FULL OUTER JOIN|INNER JOIN|LEFT JOIN|RIGHT JOIN|FULL JOIN|CROSS JOIN|JOIN|OUTER APPLY|CROSS APPLY)\b/i.test(
+              line,
+            )
+          ) {
+            tempIndent = 1;
+          }
+
+          const baseIndent = unit.repeat(procBodyLevel + level);
+
+          if (
+            /^(LEFT OUTER JOIN|RIGHT OUTER JOIN|FULL OUTER JOIN|INNER JOIN|LEFT JOIN|RIGHT JOIN|FULL JOIN|CROSS JOIN|JOIN|OUTER APPLY|CROSS APPLY)\b/i.test(
+              line,
+            )
+          ) {
+            const aligned = alignJoinBlock(lines, i, baseIndent);
+            aligned.lines.forEach((v) => out.push(v));
+            i = aligned.nextIndex;
+            singleLineIfDepth = 0;
+            continue;
+          }
+
+          if (/^WHERE\b/i.test(line)) {
+            const aligned = alignWhereBlock(lines, i, baseIndent);
+            aligned.lines.forEach((v) => out.push(v));
+            i = aligned.nextIndex;
+            singleLineIfDepth = 0;
+            continue;
+          }
+
+          if (/^WITH\b/i.test(line)) {
+            out.push(baseIndent + line);
+            singleLineIfDepth = 0;
+            continue;
+          }
+
+          if (/^,\s*[A-Za-z0-9_#\[\]\.]+\s+AS\b/i.test(line)) {
+            out.push(baseIndent + unit + line);
+            singleLineIfDepth = 0;
+            continue;
+          }
+
+          if (/^FROM\b/i.test(line)) {
+            out.push(baseIndent + line);
+            singleLineIfDepth = 0;
+            continue;
+          }
+
+          if (/^SELECT\b/i.test(line)) {
+            out.push(baseIndent + line);
+            singleLineIfDepth = 0;
+            continue;
+          }
+
+          let indentLevel = procBodyLevel + level + tempIndent;
+          if (/^,/.test(line)) indentLevel += 1;
+          if (/^(AND|OR)\b/i.test(line)) indentLevel += 1;
+          if (/^(WHEN|ELSE)\b/i.test(line)) indentLevel += 1;
+
+          out.push(unit.repeat(indentLevel) + line);
+
+          if (
+            /\bBEGIN\b/i.test(upper) ||
+            /\bCASE\b/i.test(upper) ||
+            /^BEGIN TRY\b/i.test(upper) ||
+            /^BEGIN CATCH\b/i.test(upper)
+          ) {
+            level += 1;
+            singleLineIfDepth = 0;
+            continue;
+          }
+
+          if (/^IF\b/i.test(upper) || /^WHILE\b/i.test(upper)) {
+            if (/\bBEGIN\b/i.test(upper)) {
+              level += 1;
+              singleLineIfDepth = 0;
+            } else {
+              singleLineIfDepth = 1;
+            }
+            continue;
+          }
+
+          if (/^ELSE\b/i.test(upper)) {
+            if (/\bBEGIN\b/i.test(upper)) {
+              level += 1;
+              singleLineIfDepth = 0;
+            } else {
+              singleLineIfDepth = 1;
+            }
+            continue;
+          }
+
+          if (singleLineIfDepth > 0) {
+            singleLineIfDepth = 0;
+          }
+        }
+
+        return out
+          .join("\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .replace(/\bBEGIN\n\nBEGIN\b/g, "BEGIN")
+          .trim();
+      }
+
+      function cleanupResult(sql) {
+        return sql
+          .replace(/[ \t]+\n/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .replace(/\bWITH\s*\(\s*NOLOCK\s*\)/gi, "WITH(NOLOCK)")
+          .replace(/\bTHEN\s+/gi, "THEN ")
+          .replace(/\n\s*\)/g, "\n)")
+          .replace(/\bGO\b\s*\n\s*\bGO\b/gi, "GO")
+          .trim();
+      }
+
+      function postFormatFixes(sql) {
+        let result = sql;
+        const lines = result.split("\n");
+        const fixedLines = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const trimmed = line.trim();
+
+          if (/^EXEC\b/i.test(trimmed)) {
+            const indent = (line.match(/^\s*/) || [""])[0];
+            fixedLines.push(line);
+            let j = i + 1;
+            let first = true;
+
+            while (j < lines.length) {
+              const next = lines[j].trim();
+              if (!next || !/^[@,]/.test(next)) break;
+              fixedLines.push(indent + (first ? "     " : "    ") + next);
+              first = false;
+              j += 1;
+            }
+
+            i = j - 1;
+            continue;
+          }
+
+          fixedLines.push(line);
+        }
+
+        result = fixedLines.join("\n");
+        result = result
+          .replace(/(^|\n)([ \t]*)--\s*\n([ \t]*)([^\n]+)/g, "$1$2-- $4")
+          .replace(/(SET\s+[^=\n]+\=)\s*\n\s*CASE\b/gi, "$1  CASE")
+          .replace(/(,\s*[^=\n]+\=)\s*\n\s*CASE\b/gi, "$1  CASE")
+          .replace(
+            /(\n[ \t]*[A-Za-z0-9_#\[\]\.]+\s*=)\s*\n\s*CASE\b/g,
+            "$1  CASE",
+          )
+          .replace(/(\bELSE\s+IF\b[^\n]*?)\s+(?=BEGIN\b)/gi, "$1\n")
+          .replace(/(\bSELECT\s+@[^\n]*?)(?=\s+SELECT\s+@)/gi, "$1\n");
+
+        const brokenKeywords = [
+          [
+            "END",
+            /\bEND(?=(SELECT|UPDATE|INSERT|CREATE|DECLARE|RETURN|EXEC|SET|WITH|IF|ELSE|WHILE)\b)/gi,
+          ],
+          [
+            "BEGIN",
+            /\bBEGIN(?=(SELECT|UPDATE|INSERT|CREATE|DECLARE|RETURN|EXEC|SET|WITH|IF|ELSE|WHILE)\b)/gi,
+          ],
+          [
+            "RETURN",
+            /\bRETURN(?=(SELECT|UPDATE|INSERT|CREATE|DECLARE|EXEC|SET|WITH|IF|ELSE|WHILE|BEGIN)\b)/gi,
+          ],
+        ];
+
+        const out = [];
+        for (const rawLine of result.split("\n")) {
+          if (!rawLine.trim() || /^\s*--/.test(rawLine)) {
+            out.push(rawLine);
+            continue;
+          }
+
+          const indent = (rawLine.match(/^\s*/) || [""])[0];
+          let current = rawLine;
+
+          for (const [, pattern] of brokenKeywords) {
+            current = current.replace(pattern, (m) => m + "\n" + indent);
+          }
+
+          for (const part of current.split("\n")) {
+            out.push(part);
+          }
+        }
+
+        return out.join("\n").replace(/\n{3,}/g, "\n\n");
+      }
+      function prettifySql(input, options) {
+        let sql = normalizeLineBreaks(input).trim();
+        if (!sql) return "";
+
+        const protectedData = protectSegments(sql);
+        sql = protectedData.result;
+        sql = normalizeMissingKeywordSpaces(sql);
+
+        sql = formatProcParams(sql, options);
+        sql = formatDeclareBlocks(sql, options);
+        sql = formatInsertColumns(sql, options);
+        sql = collapseSpaces(sql);
+        if (options.spaceAroundOperator) sql = normalizeOperators(sql);
+        sql = applyKeywordCase(sql, options.keywordCase);
+        sql = formatCteBlocks(sql, options);
+        sql = breakClauses(sql, options);
+        sql = formatCaseBlocks(sql, options);
+        sql = formatExecParams(sql, options);
+        sql = formatSelectLists(sql, options);
+        sql = formatSetClauses(sql, options);
+        sql = indentLines(sql, options);
+
+        // 주석/문자열을 복원하기 전에 후처리까지 끝내야 한다.
+        // 복원 후 정규식을 돌리면 인라인 주석이나 문자열 내부 텍스트가 실제 SQL처럼 쪼개질 수 있다.
+        sql = postFormatFixes(sql);
+        sql = cleanupResult(sql);
+        sql = restoreSegments(sql, protectedData.store);
+        return sql.trim();
+      }
+
+      function getOptions() {
+        return {
+          indentSize: Number(el("indentSize").value) || 4,
+          keywordCase: el("keywordCase").value,
+
+          // 테스트 단계로 화면에서는 체크박스 UI를 숨기고, 코드상 항상 true 처리
+          alignDeclare: true,
+          alignProcParams: true,
+          alignSelectList: true,
+          alignSetClause: true,
+          breakBeforeComma: true,
+          newlineBeforeJoin: true,
+          newlineBeforeAnd: true,
+          spaceAroundOperator: true,
+        };
+      }
+
+      function setStatus(message) {
+        el("status").textContent = message;
+      }
+
+      function formatNow() {
+        const input = el("inputSql").value;
+        const output = prettifySql(input, getOptions());
+        el("outputSql").value = output;
+        setStatus(
+          output
+            ? `포맷 완료\n라인 수: ${output.split("\n").length}`
+            : "입력된 SQL이 없습니다.",
+        );
+      }
+
+      el("formatBtn").addEventListener("click", formatNow);
+      el("copyBtn").addEventListener("click", async () => {
+        const value = el("outputSql").value;
+        if (!value) return setStatus("복사할 결과가 없습니다.");
+        try {
+          await navigator.clipboard.writeText(value);
+          setStatus("결과를 클립보드에 복사했습니다.");
+        } catch {
+          setStatus("브라우저가 클립보드 복사를 허용하지 않았습니다.");
+        }
+      });
+
+      el("swapBtn").addEventListener("click", () => {
+        el("inputSql").value = el("outputSql").value;
+        setStatus("결과를 입력 영역으로 옮겼습니다.");
+      });
+
+      const sample = `CREATE PROCEDURE YLW_SASServiceCloseRemarkMailSend
+     @Today   VARCHAR(8) = NULL,
+     @DateFr  VARCHAR(8) = NULL
+ AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+    SET @Today  = ISNULL(@Today, CONVERT(VARCHAR(8), GETDATE(), 112));
+    SET @DateFr = ISNULL(@DateFr, CONVERT(VARCHAR(8), DATEADD(DAY, -10, CONVERT(DATE, @Today, 112)), 112));
+
+    SELECT @Body = STRING_AGG(CAST('<tr>' + '<td>' + A.CreateDate + '</td>' AS NVARCHAR(MAX)), N'')
+      FROM YLW_TASServiceDailyClose A WITH(NOLOCK)
+     WHERE NotClose <> 1 AND Remark = N''
+       AND CreateDate <= @Today
+       AND CreateDate >= @DateFr;
+
+    EXEC msdb.dbo.sp_send_dbmail @profile_name = 'YLW정보보안팀', @recipients = @PslEmail, @copy_recipients = @CopyRecipients, @body = @Body;
+END`;
+
+      if (el("sampleBtn")) {
+        el("sampleBtn").addEventListener("click", () => {
+          el("inputSql").value = sample;
+          setStatus("예제를 넣었습니다.");
+        });
+      }
+
+      if (el("pasteSampleMessy")) {
+        el("pasteSampleMessy").addEventListener("click", () => {
+          el("inputSql").value = sample;
+          formatNow();
+        });
+      }
+
+      function setCheckedIfExists(id, value) {
+        const target = el(id);
+        if (target) target.checked = value;
+      }
+
+      el("resetBtn").addEventListener("click", () => {
+        el("indentSize").value = 4;
+        el("keywordCase").value = "upper";
+        setCheckedIfExists("alignDeclare", true);
+        setCheckedIfExists("alignProcParams", true);
+        setCheckedIfExists("alignSelectList", true);
+        setCheckedIfExists("alignSetClause", true);
+        setCheckedIfExists("breakBeforeComma", true);
+        setCheckedIfExists("newlineBeforeJoin", true);
+        setCheckedIfExists("newlineBeforeAnd", true);
+        setCheckedIfExists("spaceAroundOperator", true);
+        el("inputSql").value = "";
+        el("outputSql").value = "";
+        setStatus("초기화했습니다.");
+      });
+    </script>
+  </body>
+</html>
