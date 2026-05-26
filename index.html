@@ -1897,6 +1897,132 @@
 
         return out.join("\n").replace(/\n{3,}/g, "\n\n");
       }
+      // 모든 파이프라인이 끝난 뒤 DECLARE 블록을 "DECLARE 키워드 폭만큼 들여쓰기 + 꼬리 콤마"로 재정렬
+      function realignDeclareBlocks(sql, options) {
+        if (!options.alignDeclare) return sql;
+        const lines = sql.split("\n");
+        const out = [];
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const trimmed = line.trim();
+          if (!/^DECLARE\b/i.test(trimmed)) {
+            out.push(line);
+            continue;
+          }
+          const indent = (line.match(/^[ \t]*/) || [""])[0];
+          const blockLines = [trimmed];
+          let j = i + 1;
+          while (j < lines.length) {
+            const ct = lines[j].trim();
+            if (ct === "") {
+              j++;
+              continue;
+            }
+            if (/^,?\s*@[A-Za-z0-9_#]/.test(ct)) {
+              blockLines.push(ct);
+              j++;
+              continue;
+            }
+            break;
+          }
+          let joined = blockLines
+            .join(" ")
+            .replace(/^DECLARE\s+/i, "")
+            .replace(/\s+/g, " ")
+            .trim();
+          const hasTrailingComma = /,\s*$/.test(joined);
+          if (hasTrailingComma) joined = joined.replace(/,\s*$/, "");
+          const items = splitTopLevel(joined).filter(Boolean);
+          if (!items.length || !items.every((v) => /^@/.test(v.trim()))) {
+            for (let k = i; k < j; k++) out.push(lines[k]);
+            i = j - 1;
+            continue;
+          }
+          const parsed = items.map(parseVarDeclarationItem);
+          if (parsed.some((v) => v.raw)) {
+            for (let k = i; k < j; k++) out.push(lines[k]);
+            i = j - 1;
+            continue;
+          }
+          const nameW = Math.max(...parsed.map((v) => v.name.length));
+          const declareWord = keywordTransform("DECLARE", options.keywordCase);
+          const contIndent = indent + " ".repeat(declareWord.length + 1);
+          parsed.forEach((v, idx) => {
+            const isLast = idx === parsed.length - 1;
+            const suffix = isLast && !hasTrailingComma ? "" : ",";
+            const typePart = v.type + (v.assign ? " = " + v.assign : "");
+            const body = v.name.padEnd(nameW) + " " + typePart + suffix;
+            if (idx === 0) out.push(indent + declareWord + " " + body);
+            else out.push(contIndent + body);
+          });
+          i = j - 1;
+        }
+        return out.join("\n");
+      }
+
+      // SELECT 다중 컬럼을 첫 컬럼 위치로 정렬 + 꼬리 콤마 스타일로 재정렬
+      function realignSelectColumns(sql, options) {
+        if (!options.alignSelectList) return sql;
+        const lines = sql.split("\n");
+        const out = [];
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const trimmed = line.trim();
+          const m = trimmed.match(
+            /^(SELECT(?:\s+(?:TOP\s*\([^)]*\)|TOP\s+\d+(?:\s+PERCENT)?|DISTINCT))?)\s+(.+)$/i,
+          );
+          if (!m) {
+            out.push(line);
+            continue;
+          }
+          const indent = (line.match(/^[ \t]*/) || [""])[0];
+          const head = m[1]; // e.g. "SELECT" or "SELECT TOP 10"
+          const firstBody = m[2];
+          // 연속 라인 수집: ',col' 형태로 머리 콤마가 붙은 후속 라인만
+          const collected = [firstBody.replace(/^,\s*/, "")];
+          let j = i + 1;
+          let hasCont = false;
+          while (j < lines.length) {
+            const ct = lines[j].trim();
+            if (ct === "") {
+              j++;
+              continue;
+            }
+            if (/^,/.test(ct)) {
+              collected.push(ct.replace(/^,\s*/, ""));
+              hasCont = true;
+              j++;
+              continue;
+            }
+            break;
+          }
+          if (!hasCont) {
+            out.push(line);
+            continue;
+          }
+          // 다시 합쳐서 top-level 콤마 기준으로 분리 (각 line이 이미 콤마 없는 단일 컬럼이면 그대로)
+          const joined = collected.join(", ").trim();
+          const items = splitTopLevel(joined).filter(Boolean);
+          if (items.length <= 1) {
+            // 단일 컬럼이라면 다중 라인 의미 없음
+            for (let k = i; k < j; k++) out.push(lines[k]);
+            i = j - 1;
+            continue;
+          }
+          const headWithSpace = head + " ";
+          const contIndent = indent + " ".repeat(headWithSpace.length);
+          items.forEach((it, idx) => {
+            const isLast = idx === items.length - 1;
+            const suffix = isLast ? "" : ",";
+            if (idx === 0)
+              out.push(indent + headWithSpace + it.trim() + suffix);
+            else out.push(contIndent + it.trim() + suffix);
+          });
+          i = j - 1;
+        }
+        return out.join("\n");
+      }
+
       function prettifySql(input, options) {
         let sql = normalizeLineBreaks(input).trim();
         if (!sql) return "";
@@ -1926,6 +2052,9 @@
         sql = restoreSegments(sql, protectedData.store);
         // 복원된 주석에 딸려온 \n으로 빈 줄이 새로 생길 수 있어 마지막으로 한 번 더 정리
         sql = sql.replace(/[ \t]+\n/g, "\n").replace(/\n{2,}/g, "\n");
+        // 최종 시각 정렬: DECLARE / SELECT 다중컬럼 → 꼬리 콤마 + 첫 컬럼 정렬
+        sql = realignDeclareBlocks(sql, options);
+        sql = realignSelectColumns(sql, options);
         return sql.trim();
       }
 
