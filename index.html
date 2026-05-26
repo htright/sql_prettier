@@ -598,7 +598,7 @@
           <div class="rule-group">
             <div class="field">
               <label for="indentSize">들여쓰기 칸 수</label>
-              <input id="indentSize" type="number" min="1" max="8" value="4" />
+              <input id="indentSize" type="number" min="1" max="8" value="2" />
             </div>
 
             <div class="field">
@@ -1074,7 +1074,7 @@
           .replace(/\s*\bCASE\b\s*/gi, `\n${caseWord}\n`)
           .replace(/\s*\bWHEN\b\s*/gi, `\n${whenWord} `)
           .replace(/\s*\bELSE\b\s*/gi, `\n${elseWord} `)
-          .replace(/\s*\bEND\b\s*/gi, `\n${endWord}`)
+          .replace(/\s*\bEND\b/gi, `\n${endWord}`)
           .replace(/\s*\bTHEN\b\s*/gi, ` ${thenWord} `)
           .replace(/\n{3,}/g, "\n\n");
       }
@@ -1749,7 +1749,7 @@
         const brokenKeywords = [
           [
             "END",
-            /\bEND(?=(SELECT|UPDATE|INSERT|CREATE|DECLARE|RETURN|EXEC|SET|WITH|IF|ELSE|WHILE)\b)/gi,
+            /\bEND(?=(SELECT|UPDATE|INSERT|CREATE|DECLARE|RETURN|EXEC|SET|WITH|IF|ELSE|WHILE|FROM|WHERE|GROUP|ORDER|HAVING|JOIN|AND|OR|BEGIN|CASE|DELETE|TRUNCATE|DROP|ALTER|UNION|VALUES|OUTPUT|INTO)\b)/gi,
           ],
           [
             "BEGIN",
@@ -2101,7 +2101,7 @@ END`;
       })();
 
       el("resetBtn").addEventListener("click", () => {
-        el("indentSize").value = 4;
+        el("indentSize").value = 2;
         el("keywordCase").value = "upper";
         setCheckedIfExists("alignDeclare", true);
         setCheckedIfExists("alignProcParams", true);
