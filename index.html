@@ -884,17 +884,42 @@
       ];
 
       const MAIN_CLAUSES = [
+        // statement-level (길이가 긴 매치를 먼저 적용)
+        "CREATE CLUSTERED INDEX",
+        "CREATE NONCLUSTERED INDEX",
+        "CREATE UNIQUE INDEX",
+        "CREATE INDEX",
+        "CREATE TABLE",
+        "ALTER TABLE",
+        "DROP TABLE",
+        "TRUNCATE TABLE",
+        "INSERT INTO",
+        "DELETE FROM",
+        "DELETE",
+        "UPDATE",
+        "MERGE INTO",
+        "DECLARE",
+        "EXECUTE",
+        "EXEC",
+        "PRINT",
+        "RETURN",
+        "BEGIN TRAN",
+        "BEGIN TRY",
+        "BEGIN CATCH",
+        "END TRY",
+        "END CATCH",
+        "BEGIN",
+        "END",
+        "WHILE",
+        "IF",
+        // clause-level
         "SELECT",
         "FROM",
         "WHERE",
         "GROUP BY",
         "ORDER BY",
         "HAVING",
-        "INSERT INTO",
         "VALUES",
-        "UPDATE",
-        "DELETE FROM",
-        "DELETE",
         "SET",
       ];
 
@@ -1804,6 +1829,37 @@
           .trim();
       }
 
+      // 한 줄이 너무 길면 의미가 명확한 break point에서 줄을 나눈다.
+      // 토큰화된 상태(restoreSegments 직전)에서 호출해서 실제 문자열 내부 콤마는
+      // 절대 건드리지 않도록 한다. store 인자로 실제 길이를 환산해 임계값 판단.
+      function wrapLongLines(sql, store, maxWidth) {
+        function effectiveLen(line) {
+          return line.replace(/__PROTECTED_(\d+)__/g, (_, idx) => {
+            const v = store && store[Number(idx)];
+            return v == null ? "" : String(v);
+          }).length;
+        }
+        function wrapOne(line) {
+          if (effectiveLen(line) <= maxWidth) return [line];
+          const indent = (line.match(/^[ \t]*/) || [""])[0];
+          const contIndent = indent + "  ";
+          // a) 서브쿼리 묶음 `), (SELECT ...` 사이 분리
+          let after = line.replace(
+            /\)\s*,\s*\(\s*(?=SELECT\b)/gi,
+            ")\n" + contIndent + ", (",
+          );
+          if (after !== line) return after.split("\n").flatMap(wrapOne);
+          // b) 문자열/식별자/괄호 concat: ` + '...'`, ` + N'...'`, ` + @x`, ` + (`
+          after = line.replace(
+            / \+ (?=N?__PROTECTED_|@[A-Za-z0-9_#]|\()/g,
+            "\n" + contIndent + "+ ",
+          );
+          if (after !== line) return after.split("\n").flatMap(wrapOne);
+          return [line];
+        }
+        return sql.split("\n").flatMap(wrapOne).join("\n");
+      }
+
       function cleanupResult(sql) {
         let result = sql
           .replace(/[ \t]+\n/g, "\n")
@@ -2055,6 +2111,8 @@
         // 복원 후 정규식을 돌리면 인라인 주석이나 문자열 내부 텍스트가 실제 SQL처럼 쪼개질 수 있다.
         sql = postFormatFixes(sql);
         sql = cleanupResult(sql);
+        // 토큰화 상태에서 라인 길이 기반 wrap (문자열 내부 콤마 보호)
+        sql = wrapLongLines(sql, protectedData.store, 140);
         sql = restoreSegments(sql, protectedData.store);
         // 복원된 주석에 딸려온 \n으로 빈 줄이 새로 생길 수 있어 마지막으로 한 번 더 정리
         sql = sql.replace(/[ \t]+\n/g, "\n").replace(/\n{2,}/g, "\n");

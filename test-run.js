@@ -121,6 +121,18 @@ const hasOut = /OutAmt/.test(r3);
 const commentSwallowedOut = r3.split("\n").some(l => /--[^\n]*OutAmt/.test(l));
 console.log((hasOut && !commentSwallowedOut ? "✅" : "❌") + " OutAmt preserved past trailing comment");
 
+// 6. statement boundary: CREATE TABLE / EXEC / IF / DECLARE 등 줄바꿈
+const r5 = pretty(`SET @x = 1 CREATE TABLE #t (a INT) INSERT INTO #t (a) VALUES (1) IF @x = 1 BEGIN PRINT 'ok' END`);
+const hasNewlines = ["CREATE TABLE", "INSERT INTO", "IF @x", "BEGIN", "END"]
+  .every(k => r5.split("\n").some(l => l.trim().startsWith(k)));
+console.log((hasNewlines ? "✅" : "❌") + " statement boundary newlines");
+if (!hasNewlines) console.log("--- OUTPUT ---\n" + r5 + "\n---");
+
+// 7. 긴 라인 wrap: ` + 'literal'` 패턴
+const longConcat = pretty(`SELECT @x = '${"a".repeat(50)}' + '${"b".repeat(50)}' + '${"c".repeat(50)}' + @y`);
+const wrapped = longConcat.split("\n").length >= 3;
+console.log((wrapped ? "✅" : "❌") + ` long concat wrapped (lines=${longConcat.split("\n").length})`);
+
 // 6. 중첩 보호 토큰: 라인 주석 안의 [bracket] / 문자열 안의 [bracket]
 const r4 = pretty(`SELECT [Col1], --note with [bracket] inside
        x
