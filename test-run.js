@@ -121,6 +121,15 @@ const hasOut = /OutAmt/.test(r3);
 const commentSwallowedOut = r3.split("\n").some(l => /--[^\n]*OutAmt/.test(l));
 console.log((hasOut && !commentSwallowedOut ? "✅" : "❌") + " OutAmt preserved past trailing comment");
 
+// 6. 중첩 보호 토큰: 라인 주석 안의 [bracket] / 문자열 안의 [bracket]
+const r4 = pretty(`SELECT [Col1], --note with [bracket] inside
+       x
+FROM dbo.[My Table]
+WHERE name = '[literal bracket]'`);
+const leaks = (r4.match(/__PROTECTED_/g) || []).length;
+console.log((leaks === 0 ? "✅" : "❌") + ` no PROTECTED token leak (count=${leaks})`);
+if (leaks) console.log("--- OUTPUT ---\n" + r4 + "\n---");
+
 console.log("\n=== Sample 출력 (DECLARE + SELECT) ===");
 console.log(pretty(`DECLARE @docHandle INT, @AccUnit INT, @AccDate NVARCHAR(8), @SMAccStd INT,
             @BitCnt INT, @SMIsSet INT, @SMIsExecute INT

@@ -938,10 +938,19 @@
       }
 
       function restoreSegments(sql, store) {
+        // 늦게 매치된 패턴이 먼저 만들어진 토큰을 포함하는 경우가 있어
+        // (예: 라인 주석 안의 [...] 또는 문자열 안의 [...]) 역순으로 복원해야
+        // 바깥쪽을 풀어낸 뒤 노출된 안쪽 토큰까지 같은 패스에서 처리된다.
         let result = sql;
-        store.forEach((value, index) => {
-          result = result.replaceAll(`__PROTECTED_${index}__`, value);
-        });
+        for (let i = store.length - 1; i >= 0; i--) {
+          result = result.replaceAll(`__PROTECTED_${i}__`, store[i]);
+        }
+        // 만약을 위한 안전망: 남은 토큰이 있으면 한 번 더 시도
+        if (result.includes("__PROTECTED_")) {
+          for (let i = store.length - 1; i >= 0; i--) {
+            result = result.replaceAll(`__PROTECTED_${i}__`, store[i]);
+          }
+        }
         return result;
       }
 
