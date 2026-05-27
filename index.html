@@ -1832,6 +1832,7 @@
       // 한 줄이 너무 길면 의미가 명확한 break point에서 줄을 나눈다.
       // 토큰화된 상태(restoreSegments 직전)에서 호출해서 실제 문자열 내부 콤마는
       // 절대 건드리지 않도록 한다. store 인자로 실제 길이를 환산해 임계값 판단.
+      // 재귀 대신 stack 기반 반복 — 분할이 깊게 누적돼도 호출 스택 한도에 안 걸린다.
       function wrapLongLines(sql, store, maxWidth) {
         function effectiveLen(line) {
           return line.replace(/__PROTECTED_(\d+)__/g, (_, idx) => {
@@ -1839,8 +1840,7 @@
             return v == null ? "" : String(v);
           }).length;
         }
-        function wrapOne(line) {
-          if (effectiveLen(line) <= maxWidth) return [line];
+        function trySplit(line) {
           const indent = (line.match(/^[ \t]*/) || [""])[0];
           const contIndent = indent + "  ";
           // a) 서브쿼리 묶음 `), (SELECT ...` 사이 분리
@@ -1848,16 +1848,41 @@
             /\)\s*,\s*\(\s*(?=SELECT\b)/gi,
             ")\n" + contIndent + ", (",
           );
-          if (after !== line) return after.split("\n").flatMap(wrapOne);
+          if (after !== line) return after.split("\n");
           // b) 문자열/식별자/괄호 concat: ` + '...'`, ` + N'...'`, ` + @x`, ` + (`
           after = line.replace(
             / \+ (?=N?__PROTECTED_|@[A-Za-z0-9_#]|\()/g,
             "\n" + contIndent + "+ ",
           );
-          if (after !== line) return after.split("\n").flatMap(wrapOne);
-          return [line];
+          if (after !== line) return after.split("\n");
+          return null;
         }
-        return sql.split("\n").flatMap(wrapOne).join("\n");
+        const out = [];
+        const initial = sql.split("\n");
+        // LIFO 스택에 역순 push → 출력은 원래 순서 유지
+        const stack = [];
+        for (let i = initial.length - 1; i >= 0; i--) stack.push(initial[i]);
+        const MAX_ITER = initial.length * 50 + 1000;
+        let iter = 0;
+        while (stack.length) {
+          if (++iter > MAX_ITER) {
+            // 비상 종료: 남은 라인 그대로 출력
+            while (stack.length) out.push(stack.pop());
+            break;
+          }
+          const line = stack.pop();
+          if (effectiveLen(line) <= maxWidth) {
+            out.push(line);
+            continue;
+          }
+          const split = trySplit(line);
+          if (!split || split.length <= 1) {
+            out.push(line);
+            continue;
+          }
+          for (let i = split.length - 1; i >= 0; i--) stack.push(split[i]);
+        }
+        return out.join("\n");
       }
 
       function cleanupResult(sql) {
@@ -2415,15 +2440,29 @@
 
       function formatNow() {
         const input = el("inputSql").value;
-        const output = prettifySql(input, getOptions());
+        let output;
+        try {
+          output = prettifySql(input, getOptions());
+        } catch (e) {
+          console.error("prettifySql error:", e);
+          setStatus(
+            "포맷 중 오류가 발생했습니다: " +
+              (e && e.message ? e.message : String(e)),
+          );
+          return;
+        }
         el("outputSql").value = output;
         setStatus(
           output
             ? `포맷 완료\n라인 수: ${output.split("\n").length}`
             : "입력된 SQL이 없습니다.",
         );
-        renderDiff(input, output);
-        refreshGutters();
+        try {
+          renderDiff(input, output);
+          refreshGutters();
+        } catch (e) {
+          console.error("post-format UI error:", e);
+        }
       }
 
       el("formatBtn").addEventListener("click", formatNow);

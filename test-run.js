@@ -128,6 +128,13 @@ const hasNewlines = ["CREATE TABLE", "INSERT INTO", "IF @x", "BEGIN", "END"]
 console.log((hasNewlines ? "✅" : "❌") + " statement boundary newlines");
 if (!hasNewlines) console.log("--- OUTPUT ---\n" + r5 + "\n---");
 
+// 7b. 깊은 분할에서 stack overflow 안 나는지 (재귀 → stack 기반)
+const tds = Array.from({length:30}, (_,i)=>`(SELECT 'sty${i}' AS 'td/@style', Day${i} AS 'td' FOR XML PATH(''), TYPE)`).join(',');
+let stackOk = true;
+try { pretty(`SELECT @x = (SELECT (SELECT 'h' AS 'td', T AS 'td' FOR XML PATH(''), TYPE),${tds} FROM t FOR XML PATH('tr'), TYPE)`); }
+catch(e) { stackOk = false; console.log("   stack overflow:", e.message); }
+console.log((stackOk ? "✅" : "❌") + " no stack overflow on deep wrap");
+
 // 7. 긴 라인 wrap: ` + 'literal'` 패턴
 const longConcat = pretty(`SELECT @x = '${"a".repeat(50)}' + '${"b".repeat(50)}' + '${"c".repeat(50)}' + @y`);
 const wrapped = longConcat.split("\n").length >= 3;
