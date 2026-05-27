@@ -128,6 +128,17 @@ const hasNewlines = ["CREATE TABLE", "INSERT INTO", "IF @x", "BEGIN", "END"]
 console.log((hasNewlines ? "✅" : "❌") + " statement boundary newlines");
 if (!hasNewlines) console.log("--- OUTPUT ---\n" + r5 + "\n---");
 
+// 7d. PIVOT IN 콤마 분리 + ISNULL 함수 인자 콤마 보호 + ;후 줄바꿈
+const days = Array.from({length:30},(_,i)=>`[Day${String(i+1).padStart(2,'0')}]`).join(", ");
+const cols = Array.from({length:30},(_,i)=>`ISNULL(CAST([D${i}] AS NVARCHAR(MAX)), '') AS D${i}`).join(", ");
+const r7d = pretty(`SELECT * INTO #t FROM x PIVOT (SUM(Cnt) FOR D IN (${days})) AS R; WITH H AS (SELECT ${cols} FROM #t)`);
+const pivotSplit = r7d.split("\n").filter(l => l.trim().startsWith("[D")).length >= 5;
+const isnullKept = r7d.split("\n").some(l => /ISNULL\(CAST\(\[D0\] AS NVARCHAR\(MAX\)\), ''\) AS D0\b/.test(l));
+const semicolonBreaks = r7d.split("\n").some(l => l.trim().startsWith("WITH "));
+console.log((pivotSplit && isnullKept && semicolonBreaks ? "✅" : "❌") +
+  ` PIVOT/CTE wrap (pivot=${pivotSplit}, isnull-intact=${isnullKept}, ;-split=${semicolonBreaks})`);
+if (!(pivotSplit && isnullKept && semicolonBreaks)) console.log("--- OUT ---\n" + r7d + "\n---");
+
 // 7c. 단일 토큰이 maxWidth 초과 시 분리 진전 없으면 그대로 두기 (indent 폭증 X)
 const longToken = "'" + "x".repeat(180) + "'";
 const r7c = pretty(`SELECT @x = ${longToken} + ${longToken} + ${longToken}`);

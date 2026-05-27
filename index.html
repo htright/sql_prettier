@@ -1874,7 +1874,70 @@
             const parts = after.split("\n");
             if (progressed(parts)) return parts;
           }
+          // c) 일반 콤마 fallback — IN 절이나 긴 컬럼 리스트가 paren 안에 들어
+          //    있어 splitTopLevel이 손대지 못한 경우. 함수 호출 인자
+          //    (예: ISNULL(x, y), CAST(a AS T)) 안의 콤마는 보호한다.
+          const commaParts = splitCommasOutsideFunctions(line, contIndent);
+          if (commaParts && progressed(commaParts)) return commaParts;
           return null;
+        }
+        // `(` anchor 단어가 fn 호출인지 판정. SQL 키워드 다음 paren은
+        // grouping이므로 안의 콤마를 분리 대상으로 본다.
+        const NON_FN_KEYWORDS = new Set([
+          "IN", "VALUES", "OR", "AND", "NOT", "BETWEEN", "LIKE", "EXISTS",
+          "PIVOT", "UNPIVOT", "INSERT", "SELECT", "UPDATE", "DELETE", "SET",
+          "WHERE", "GROUP", "ORDER", "HAVING", "WITH", "OVER", "PARTITION",
+          "ON", "BY", "AS", "CASE", "WHEN", "THEN", "ELSE", "END",
+          "UNION", "INTERSECT", "EXCEPT",
+          "OUTER", "INNER", "LEFT", "RIGHT", "FULL", "CROSS", "APPLY", "JOIN",
+          "FROM", "INTO", "RETURNING", "USING", "OPTION",
+        ]);
+        function splitCommasOutsideFunctions(line, contIndent) {
+          function isFnParen(i) {
+            let j = i - 1;
+            while (j >= 0 && /[ \t]/.test(line[j])) j--;
+            if (j < 0 || !/[A-Za-z0-9_#]/.test(line[j])) return false;
+            let k = j;
+            while (k > 0 && /[A-Za-z0-9_#]/.test(line[k - 1])) k--;
+            const word = line.slice(k, j + 1).toUpperCase();
+            return !NON_FN_KEYWORDS.has(word);
+          }
+          const fnStack = [];
+          const indices = [];
+          let i = 0;
+          while (i < line.length) {
+            const m = line.slice(i).match(/^__PROTECTED_\d+__/);
+            if (m) {
+              i += m[0].length;
+              continue;
+            }
+            const ch = line[i];
+            if (ch === "(") {
+              fnStack.push(isFnParen(i));
+            } else if (ch === ")") {
+              fnStack.pop();
+            } else if (ch === ",") {
+              const inFn = fnStack.length > 0 && fnStack[fnStack.length - 1];
+              if (!inFn) {
+                indices.push(i);
+              }
+            }
+            i++;
+          }
+          if (indices.length === 0) return null;
+          const parts = [];
+          let prev = 0;
+          for (const idx of indices) {
+            parts.push(line.slice(prev, idx + 1));
+            prev = idx + 1;
+            while (prev < line.length && /[ \t]/.test(line[prev])) prev++;
+          }
+          parts.push(line.slice(prev));
+          const result = [parts[0]];
+          for (let k = 1; k < parts.length; k++) {
+            result.push(contIndent + parts[k]);
+          }
+          return result;
         }
         const out = [];
         const initial = sql.split("\n");
@@ -1908,6 +1971,8 @@
         let result = sql
           .replace(/[ \t]+\n/g, "\n")
           .replace(/\n{2,}/g, "\n")
+          // 세미콜론은 statement 종료자 — 같은 줄에 다음 문장이 오지 않도록 분리
+          .replace(/;[ \t]+(?=\S)/g, ";\n")
           .replace(/\bWITH\s*\(\s*NOLOCK\s*\)/gi, "WITH(NOLOCK)")
           .replace(/\bTHEN\s+/gi, "THEN ")
           .replace(/\n\s*\)/g, "\n)")
