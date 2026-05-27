@@ -1843,18 +1843,37 @@
         function trySplit(line) {
           const indent = (line.match(/^[ \t]*/) || [""])[0];
           const contIndent = indent + "  ";
+          const beforeLen = effectiveLen(line);
+          // 분할이 진정한 진전을 만들었을 때만 적용. 단일 토큰(긴 문자열 등)이
+          // 그 자체로 maxWidth 초과인 경우, 어떤 분리도 길이를 줄이지 못한다.
+          // 이때 그냥 두지 않으면 indent만 +2씩 누적하며 무한 분리하게 된다.
+          function progressed(parts) {
+            if (parts.length <= 1) return false;
+            let maxLen = 0;
+            for (const p of parts) {
+              const len = effectiveLen(p);
+              if (len > maxLen) maxLen = len;
+            }
+            return maxLen < beforeLen;
+          }
           // a) 서브쿼리 묶음 `), (SELECT ...` 사이 분리
           let after = line.replace(
             /\)\s*,\s*\(\s*(?=SELECT\b)/gi,
             ")\n" + contIndent + ", (",
           );
-          if (after !== line) return after.split("\n");
+          if (after !== line) {
+            const parts = after.split("\n");
+            if (progressed(parts)) return parts;
+          }
           // b) 문자열/식별자/괄호 concat: ` + '...'`, ` + N'...'`, ` + @x`, ` + (`
           after = line.replace(
             / \+ (?=N?__PROTECTED_|@[A-Za-z0-9_#]|\()/g,
             "\n" + contIndent + "+ ",
           );
-          if (after !== line) return after.split("\n");
+          if (after !== line) {
+            const parts = after.split("\n");
+            if (progressed(parts)) return parts;
+          }
           return null;
         }
         const out = [];

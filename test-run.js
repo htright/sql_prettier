@@ -128,6 +128,13 @@ const hasNewlines = ["CREATE TABLE", "INSERT INTO", "IF @x", "BEGIN", "END"]
 console.log((hasNewlines ? "✅" : "❌") + " statement boundary newlines");
 if (!hasNewlines) console.log("--- OUTPUT ---\n" + r5 + "\n---");
 
+// 7c. 단일 토큰이 maxWidth 초과 시 분리 진전 없으면 그대로 두기 (indent 폭증 X)
+const longToken = "'" + "x".repeat(180) + "'";
+const r7c = pretty(`SELECT @x = ${longToken} + ${longToken} + ${longToken}`);
+const fluff = r7c.split("\n").filter(l => /^\s{20,}$/.test(l));
+const maxIndent = Math.max(0, ...r7c.split("\n").map(l => (l.match(/^[ \t]*/)||[""])[0].length));
+console.log((fluff.length === 0 && maxIndent < 20 ? "✅" : "❌") + ` no indent inflation (whitespace-only lines=${fluff.length}, max indent=${maxIndent})`);
+
 // 7b. 깊은 분할에서 stack overflow 안 나는지 (재귀 → stack 기반)
 const tds = Array.from({length:30}, (_,i)=>`(SELECT 'sty${i}' AS 'td/@style', Day${i} AS 'td' FOR XML PATH(''), TYPE)`).join(',');
 let stackOk = true;
