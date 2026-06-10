@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SQL Prettier Tool - Company Standard</title>
-    <meta name="description" content="ver1.1.0" />
+    <meta name="description" content="ver1.1.1" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="sql_prettier_htjung" />
     <meta property="og:title" content="sql_prettier_htjung" />
-    <meta property="og:description" content="ver1.1.0" />
+    <meta property="og:description" content="ver1.1.1" />
     <meta
       property="og:url"
       content="https://htright.github.io/sql_prettier/"
@@ -23,7 +23,7 @@
     <meta property="og:locale" content="ko_KR" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="sql_prettier_htjung" />
-    <meta name="twitter:description" content="ver1.1.0" />
+    <meta name="twitter:description" content="ver1.1.1" />
     <meta
       name="twitter:image"
       content="https://htright.github.io/sql_prettier/og-image.png"
@@ -628,7 +628,7 @@
       <div class="topbar">
         <div class="title">
           <h1>sql_prettier_htjung</h1>
-          <p>ver1.1.0 — K-System river style</p>
+          <p>ver1.1.1 — K-System style</p>
           <div class="badge">test</div>
         </div>
         <div
@@ -803,8 +803,8 @@
     <script>
       const el = (id) => document.getElementById(id);
 
-      // K-System river 스타일 상수
-      // SELECT(6글자)의 우측 모서리를 강(river)으로 삼아
+      // K-System  스타일 상수
+      // SELECT(6글자)의 우측 모서리를 강으로 삼아
       // FROM/WHERE/GROUP BY 등의 키워드 오른쪽 끝을 맞춘다.
       const RIVER_WIDTH = 6;
 
@@ -999,11 +999,14 @@
       }
 
       function collapseSpaces(sql) {
+        // 빈 줄은 여기서 전부 제거한다. 어차피 cleanupResult가 마지막에 제거하는데,
+        // 중간 단계의 블록 수집기(formatSetClauses 등)가 빈 줄에서 수집을 중단하면
+        // "SET A = '1'," 꼬리 콤마를 단일 항목으로 오인해 콤마를 떨어뜨리는 사고가 난다.
         return sql
           .replace(/[ \t]+/g, " ")
           .replace(/ +\n/g, "\n")
           .replace(/\n +/g, "\n")
-          .replace(/\n{3,}/g, "\n\n")
+          .replace(/\n{2,}/g, "\n")
           .trim();
       }
 
@@ -1215,6 +1218,65 @@
           )
           .replace(/\)\s*,\s*([A-Za-z0-9_#\[\]\.]+\s+AS\s*\()/gi, `)\n    , $1`)
           .replace(/\n\s*,\s*([A-Za-z0-9_#\[\]\.]+\s+AS\s*\()/gi, `\n    , $1`);
+      }
+
+      // CASE ... END 식 전체를 토큰으로 보호한다 (K-System 스타일은 CASE를 인라인 유지).
+      // 보호하지 않으면 breakClauses가 CASE 내부의 AND/OR를 쪼개고,
+      // indentLines가 CASE의 END를 BEGIN 블록 END로 오인해 들여쓰기 짝이 무너진다.
+      // CASE/END 키워드 균형을 세어 중첩 CASE까지 한 토큰으로 흡수한다.
+      // (BEGIN...END의 END는 CASE 깊이 0에서 stray로 통과되므로 영향 없음)
+      function protectCaseExpressions(sql) {
+        const cases = [];
+        const tokenRe = /\b(CASE|END)\b/gi;
+        let result = "";
+        let pos = 0;
+
+        while (pos < sql.length) {
+          tokenRe.lastIndex = pos;
+          const m = tokenRe.exec(sql);
+          if (!m) {
+            result += sql.slice(pos);
+            break;
+          }
+          if (m[1].toUpperCase() === "END") {
+            // CASE 짝이 아닌 END (BEGIN 블록 종료 등) — 그대로 통과
+            result += sql.slice(pos, m.index + m[0].length);
+            pos = m.index + m[0].length;
+            continue;
+          }
+          // CASE 발견 — 균형 잡힌 END 탐색 (중첩 CASE 대응)
+          let depth = 1;
+          let endIdx = -1;
+          while (depth > 0) {
+            const m2 = tokenRe.exec(sql);
+            if (!m2) break;
+            if (m2[1].toUpperCase() === "CASE") depth += 1;
+            else depth -= 1;
+            if (depth === 0) endIdx = m2.index + m2[0].length;
+          }
+          if (endIdx === -1) {
+            // 짝이 안 맞으면 (잘린 SQL 등) 보호하지 않고 그대로 둔다
+            result += sql.slice(pos);
+            pos = sql.length;
+            break;
+          }
+          result += sql.slice(pos, m.index);
+          const token = `__CASEEXPR_${cases.length}__`;
+          // 인라인 유지를 위해 내부 공백/줄바꿈은 한 칸으로 정규화
+          cases.push(sql.slice(m.index, endIdx).replace(/\s+/g, " ").trim());
+          result += token;
+          pos = endIdx;
+        }
+
+        return { result, cases };
+      }
+
+      function restoreCaseExpressions(sql, cases) {
+        let result = sql;
+        for (let i = cases.length - 1; i >= 0; i--) {
+          result = result.replaceAll(`__CASEEXPR_${i}__`, cases[i]);
+        }
+        return result;
       }
 
       function formatCaseBlocks(sql, options) {
@@ -1803,7 +1865,8 @@
           out.push(unit.repeat(indentLevel) + line);
 
           if (
-            /\bBEGIN\b/i.test(upper) ||
+            // BEGIN TRAN/TRANSACTION은 블록 시작이 아니다 (END 짝이 없음) — 레벨 제외
+            (/\bBEGIN\b/i.test(upper) && !/^BEGIN\s+TRAN/i.test(upper)) ||
             /\bCASE\b/i.test(upper) ||
             /^BEGIN TRY\b/i.test(upper) ||
             /^BEGIN CATCH\b/i.test(upper)
@@ -2205,16 +2268,24 @@
             continue;
           }
           // AS 별칭 세로 정렬: 별칭이 하나라도 있으면 왼쪽 식을 폭 정렬
+          // 단, 인라인 CASE식처럼 비정상적으로 긴 항목은 정렬 기준에서 제외해
+          // 짧은 컬럼들이 통째로 밀려나는 것을 막는다 (긴 항목은 한 칸 띄고 AS)
           const parsed = items.map(splitAlias);
           const anyAlias = parsed.some((v) => v.alias);
+          const aliasLens = parsed
+            .filter((v) => v.alias)
+            .map((v) => v.left.length);
+          const cappedLens = aliasLens.filter((l) => l <= 60);
           const leftW = anyAlias
-            ? Math.max(...parsed.map((v) => v.left.length))
+            ? Math.max(...(cappedLens.length ? cappedLens : aliasLens))
             : 0;
           // 콤마-선행: 후속 라인의 ','가 첫 컬럼 시작 열(SELECT 길이 + 2)에 온다
           const contIndent = indent + " ".repeat(head.length + 2);
           parsed.forEach((v, idx) => {
             const body = v.alias
-              ? v.left.padEnd(leftW) + " " + v.alias
+              ? (v.left.length > leftW
+                  ? v.left + " "
+                  : v.left.padEnd(leftW) + " ") + v.alias
               : v.left;
             if (idx === 0) out.push(indent + head + "  " + body);
             else out.push(contIndent + "," + body);
@@ -2242,6 +2313,9 @@
           }
           if (updateIndent !== null && /^SET\b/i.test(trimmed)) {
             // SET 블록 수집: 첫 항목 + ','로 시작하는 후속 라인
+            // 마지막으로 수집한 라인의 꼬리 콤마는 보존해야 한다 — 후속 항목이
+            // (주석 병합 등으로) 수집 범위 밖에 남아 있을 수 있어, 떨어뜨리면 구문 오류가 된다.
+            let lastHadTrailingComma = /,\s*$/.test(trimmed);
             const items = [
               trimmed.replace(/^SET\s+/i, "").replace(/,\s*$/, ""),
             ];
@@ -2249,6 +2323,7 @@
             while (j < lines.length) {
               const ct = lines[j].trim();
               if (/^,/.test(ct)) {
+                lastHadTrailingComma = /,\s*$/.test(ct);
                 items.push(ct.replace(/^,\s*/, "").replace(/,\s*$/, ""));
                 j++;
                 continue;
@@ -2267,7 +2342,7 @@
                   p.left.padEnd(leftW) +
                   " = " +
                   p.right +
-                  (isLast ? "" : ",");
+                  (isLast ? (lastHadTrailingComma ? "," : "") : ",");
                 if (idx === 0) out.push(setIndent + "SET " + body);
                 else out.push(contIndent + body);
               });
@@ -2363,6 +2438,11 @@
         sql = collapseSpaces(sql);
         if (options.spaceAroundOperator) sql = normalizeOperators(sql);
         sql = applyKeywordCase(sql, options.keywordCase);
+        // CASE...END는 인라인 토큰으로 보호 — 이후 단계(절 분리/들여쓰기)가
+        // CASE 내부를 건드리지 못하게 한다. formatCaseBlocks는 보호 후에도
+        // 남는 ELSE(IF문)/END(블록 종료)만 처리하게 된다.
+        const caseData = protectCaseExpressions(sql);
+        sql = caseData.result;
         sql = formatCteBlocks(sql, options);
         sql = breakClauses(sql, options);
         sql = formatCaseBlocks(sql, options);
@@ -2375,6 +2455,8 @@
         // 복원 후 정규식을 돌리면 인라인 주석이나 문자열 내부 텍스트가 실제 SQL처럼 쪼개질 수 있다.
         sql = postFormatFixes(sql);
         sql = cleanupResult(sql);
+        // CASE 토큰은 wrap/최종정렬 전에 복원해야 실제 길이·AS 별칭 기준으로 정렬된다
+        sql = restoreCaseExpressions(sql, caseData.cases);
         // 토큰화 상태에서 라인 길이 기반 wrap (문자열 내부 콤마 보호)
         sql = wrapLongLines(sql, protectedData.store, 140);
         sql = restoreSegments(sql, protectedData.store);
