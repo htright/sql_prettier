@@ -1,0 +1,12 @@
+{
+  "name": "sql_prettier",
+  "version": "1.1.1",
+  "private": true,
+  "description": "SQL Prettier Tool - Company Standard",
+  "scripts": {
+    "build": "node scripts/build.js"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^4.1.1"
+  }
+}
