@@ -25,6 +25,10 @@ const OBFUSCATOR_OPTIONS = {
   deadCodeInjection: true,
   deadCodeInjectionThreshold: 0.4,
   identifierNamesGenerator: "hexadecimal",
+  // Rename top-level function/variable names too. Safe here because the
+  // page has no inline event handlers and exposes nothing on window — all
+  // references stay inside their own <script> block (obfuscated together).
+  renameGlobals: true,
   numbersToExpressions: true,
   simplify: true,
   splitStrings: true,
